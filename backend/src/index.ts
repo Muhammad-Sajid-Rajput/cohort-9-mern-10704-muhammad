@@ -14,14 +14,18 @@ import { requestLogger } from './middlewares/reqLogger';
 const app = express();
 app.use(helmet());
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',');
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ?.split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 const corsOptions: CorsOptions = {
   origin(origin, cb) {
     if (!origin || allowedOrigins?.includes(origin)) {
       cb(null, true);
     } else {
-      const errrorMessage = `the orgin ${origin ?? 'current origin'} isnt allowed !`;
-      cb(new UnAuthorizedAcsess(errrorMessage), false);
+      const errorMessage = `Origin ${origin ?? 'current origin'} is not allowed!`;
+      cb(new UnAuthorizedAcsess(errorMessage), false);
     }
   },
   credentials: true,
@@ -32,55 +36,55 @@ app.use(express.json());
 app.use(requestLogger);
 app.use(express.urlencoded({ extended: true }));
 
-// Route add here
-app.use('/health', (req: Request, res: Response, nextFn: NextFunction) => {
-  logger.info(`req came at ${req.originalUrl}`);
+app.use('/health', (req: Request, res: Response) => {
+  logger.info(`Request came at ${req.originalUrl}`);
   res.status(HTTPSTATUS.OK).json({
     message: 'everything is healthy like you!',
   });
 });
 app.use('/api/v1', routes);
 
-// 404 catch unknown routes
 app.use((req: Request, res: Response, nextFn: NextFunction) => {
   nextFn(new BadRequest(`Route ${req.originalUrl} not found`));
 });
 
-// Error handler
 app.use(globalErrorHandler);
 
 async function startServer() {
   const PORT = process.env.PORT || 8000;
   try {
-    const server = app.listen(PORT, async () => {
-      logger.info('connecting to db');
-      await connectDb();
-      logger.info(`server runing at ${PORT}`);
+    logger.info('connecting to db');
+    await connectDb();
+
+    const server = app.listen(PORT, () => {
+      logger.info(`server running at ${PORT}`);
     });
 
     const shutdownSignals = ['SIGTERM', 'SIGINT'];
     shutdownSignals.forEach((sign) => {
       process.on(sign, async () => {
         try {
-          server.close(() => {
-            logger.info('server is closing due to ', sign);
+          await new Promise<void>((resolve, reject) => {
+            server.close((err) => {
+              logger.info('server is closing due to ', sign);
+              if (err) reject(err);
+              else resolve();
+            });
           });
-          // server closed now disconnect db
           await disconnectDb();
-          // exit
           process.exit(0);
-        } catch (e) {
+        } catch {
           process.exit(0);
         }
       });
     });
 
-    process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+    process.on('unhandledRejection', (reason: unknown) => {
       logger.error('Unhandled Promise Rejection', reason);
       process.exit(1);
     });
 
-    process.on('uncaughtException', (reason: any, promise: Promise<any>) => {
+    process.on('uncaughtException', (reason: Error, origin: NodeJS.UncaughtExceptionOrigin) => {
       logger.error('Unhandled Exception Rejection', reason);
       process.exit(1);
     });
@@ -88,7 +92,7 @@ async function startServer() {
     logger.error(
       e instanceof Error
         ? e.message
-        : 'error occured starting server due to some reasons',
+        : 'Error occurred starting server',
     );
   }
 }

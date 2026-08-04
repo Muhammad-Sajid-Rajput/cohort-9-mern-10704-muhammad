@@ -52,7 +52,7 @@ export class BadRequest extends AppError {
 }
 
 export class InternalServerError extends AppError {
-  constructor(message = 'InternalServerError', errorCode?: ErrorCodeEnumKeys) {
+  constructor(message = 'Internal Server Error', errorCode?: ErrorCodeEnumKeys) {
     super(
       message,
       HTTPSTATUS.INTERNAL_SERVER_ERROR,

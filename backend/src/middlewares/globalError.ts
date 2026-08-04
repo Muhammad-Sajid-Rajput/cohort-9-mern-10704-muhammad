@@ -3,6 +3,7 @@ import type { Response, Request, NextFunction } from 'express';
 import { ErrorCodeEnums, HTTPSTATUS } from '../utils/enums';
 import { AppError } from '../utils/appError';
 import { logger } from '../utils/logger';
+
 export const formatZodErrors = (res: Response, errorZod: ZodError) => {
   const errors = errorZod?.issues?.map((error) => {
     return {
@@ -20,17 +21,22 @@ export const formatZodErrors = (res: Response, errorZod: ZodError) => {
 };
 
 type ErrorThatCanOccur = SyntaxError | AppError | ZodError | Error;
+
 export const globalErrorHandler = (
   error: ErrorThatCanOccur,
   req: Request,
   res: Response,
   nextFn: NextFunction,
 ) => {
-  logger.error(`error occured ${error}`);
+  if (res.headersSent) {
+    return nextFn(error);
+  }
+
+  logger.error(`Error occurred: ${error}`);
 
   if (error instanceof SyntaxError && 'body' in error) {
     return res.status(HTTPSTATUS.BAD_REQUEST).json({
-      message: 'bad request body request json , please check your body',
+      message: 'Invalid JSON request body',
       errorCode: ErrorCodeEnums.VALIDATION_ERROR,
       success: false,
     });
@@ -42,18 +48,14 @@ export const globalErrorHandler = (
 
   if (error instanceof AppError) {
     return res.status(error.statusCode).json({
-      message:
-        error.message ||
-        'error occured at ap level check logs to identify the error',
+      message: error.message || 'An error occurred',
       success: false,
       errorCode: error.errorCode || ErrorCodeEnums.VALIDATION_ERROR,
     });
   }
 
-  // if everything pass means internal server error
   return res.status(HTTPSTATUS.INTERNAL_SERVER_ERROR).json({
     success: false,
     message: 'Internal Server Error',
-    error: error?.message || 'unknown error',
   });
 };

@@ -1,11 +1,6 @@
 import pino from 'pino';
 
-// so we have two formats one for storing logs in files
-
-// for console for developer
-
 const targets: pino.TransportTargetOptions[] = [
-  // errors only
   {
     target: 'pino-roll',
     level: 'error',
@@ -13,10 +8,10 @@ const targets: pino.TransportTargetOptions[] = [
       file: 'logs/error',
       frequency: 'daily',
       extension: '.log',
+      size: '20m',
       mkdir: true,
     },
   },
-  // combine
   {
     target: 'pino-roll',
     level: 'info',
@@ -48,22 +43,24 @@ const pinoLogger = pino(
   {
     level: process.env.NODE_ENV === 'development' ? 'debug' : 'info',
     serializers: { err: pino.stdSerializers.err },
-    base: { service: 'notes-backed' },
+    base: { service: 'notes-backend' },
   },
   transport,
 );
 
-const logWithSwap = (level: 'info' | 'error' | 'warn' | 'debug', msgOrObj: any, ...args: any[]) => {
-  if (typeof msgOrObj === 'string' && args.length > 0 && typeof args[0] === 'object') {
-    (pinoLogger[level] as Function)(args[0], msgOrObj, ...args.slice(1));
+type LogLevel = 'info' | 'error' | 'warn' | 'debug';
+
+const logWithSwap = (level: LogLevel, msgOrObj: string | object, ...args: unknown[]): void => {
+  if (typeof msgOrObj === 'string' && args.length > 0 && typeof args[0] === 'object' && args[0] !== null) {
+    pinoLogger[level](args[0] as object, msgOrObj, ...args.slice(1) as string[]);
   } else {
-    (pinoLogger[level] as Function)(msgOrObj, ...args);
+    pinoLogger[level](msgOrObj as object, ...args as string[]);
   }
 };
 
 export const logger = {
-  info: (msgOrObj: any, ...args: any[]) => logWithSwap('info', msgOrObj, ...args),
-  error: (msgOrObj: any, ...args: any[]) => logWithSwap('error', msgOrObj, ...args),
-  warn: (msgOrObj: any, ...args: any[]) => logWithSwap('warn', msgOrObj, ...args),
-  debug: (msgOrObj: any, ...args: any[]) => logWithSwap('debug', msgOrObj, ...args),
+  info: (msgOrObj: string | object, ...args: unknown[]) => logWithSwap('info', msgOrObj, ...args),
+  error: (msgOrObj: string | object, ...args: unknown[]) => logWithSwap('error', msgOrObj, ...args),
+  warn: (msgOrObj: string | object, ...args: unknown[]) => logWithSwap('warn', msgOrObj, ...args),
+  debug: (msgOrObj: string | object, ...args: unknown[]) => logWithSwap('debug', msgOrObj, ...args),
 };
