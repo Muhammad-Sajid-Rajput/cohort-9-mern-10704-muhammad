@@ -1,0 +1,42 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# Runtime data
+*.pid
+*.pid.lock
+
+# Coverage
+coverage
+*.lcov
+.nyc_output
+
+# Dependency directories
+node_modules/
+**/node_modules/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# npm cache
+.npm
+
+# ESLint cache
+.eslintcache
+
+# dotenv files
+.env
+.env.*
+!.env.example
+
+# Build output
+dist
+build
+
+# Vite
+.cache
+.parcel-cache
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
