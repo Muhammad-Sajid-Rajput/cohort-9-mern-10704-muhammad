@@ -10,6 +10,7 @@ import { logger } from './utils/logger';
 import { globalErrorHandler } from './middlewares/globalError';
 import { routes } from './routes';
 import { requestLogger } from './middlewares/reqLogger';
+import cookieparser from 'cookie-parser';
 
 const app = express();
 app.use(helmet());
@@ -35,6 +36,7 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(requestLogger);
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieparser());
 
 app.use('/health', (req: Request, res: Response) => {
   logger.info(`Request came at ${req.originalUrl}`);

@@ -5,13 +5,11 @@ import { AppError } from '../utils/appError';
 import { logger } from '../utils/logger';
 
 export const formatZodErrors = (res: Response, errorZod: ZodError) => {
-  const errors = errorZod?.issues?.map((error) => {
-    return {
-      field: error.path.join(' '),
-      message: error.message,
-      success: false,
-    };
-  });
+  const errors = errorZod.issues.map((error) => ({
+    field: error.path.join(' '),
+    message: error.message,
+    success: false,
+  }));
 
   res.status(HTTPSTATUS.BAD_REQUEST).json({
     message: 'validation failed',
