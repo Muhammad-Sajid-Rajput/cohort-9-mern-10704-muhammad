@@ -21,7 +21,13 @@ export const userLoginSchemaZodValidation = z.object({
 });
 
 export const userForgotPasswordZodValidation = z.object({ email: emailSchema });
-export const passwordAndConfirmPasswordValidation = z.object({
-  password: passwordSchema,
-  confirmPassword: passwordSchema,
-});
+
+export const passwordAndConfirmPasswordValidation = z
+  .object({
+    password: passwordSchema,
+    confirmPassword: passwordSchema,
+  })
+  .refine(({ password, confirmPassword }) => password === confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });

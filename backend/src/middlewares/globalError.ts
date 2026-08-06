@@ -6,9 +6,8 @@ import { logger } from '../utils/logger';
 
 export const formatZodErrors = (res: Response, errorZod: ZodError) => {
   const errors = errorZod.issues.map((error) => ({
-    field: error.path.join(' '),
+    field: error.path.join('.'),
     message: error.message,
-    success: false,
   }));
 
   res.status(HTTPSTATUS.BAD_REQUEST).json({

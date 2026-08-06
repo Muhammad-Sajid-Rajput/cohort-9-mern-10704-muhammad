@@ -72,7 +72,7 @@ export const loginUser = asyncHandler(
 
 export const logoutUser = asyncHandler(
   async (req: Request, res: Response, nextFn: NextFunction) => {
-    const rawRefreshToken = req.cookies.refreshToken;
+    const rawRefreshToken = req.cookies?.refreshToken;
 
     if (rawRefreshToken) {
       await logout(rawRefreshToken);
@@ -89,7 +89,7 @@ export const logoutUser = asyncHandler(
 
 export const getRefreshToken = asyncHandler(
   async (req: Request, res: Response, nextFn: NextFunction) => {
-    const rawRefreshToken = req.cookies.refreshToken;
+    const rawRefreshToken = req.cookies?.refreshToken;
 
     if (!rawRefreshToken) {
       throw new UnAuthorizedRequest('No refresh token provided');
@@ -125,11 +125,7 @@ export const changePasswordAfterForgot = asyncHandler(
     if (!token) {
       throw new BadRequest('Token is required');
     }
-    const { password, confirmPassword } =
-      req.body as passwordAndConfirmPasswordType;
-    if (password.trim() !== confirmPassword.trim()) {
-      throw new BadRequest('Passwords do not match');
-    }
+    const { password } = req.body as passwordAndConfirmPasswordType;
     const { message, success } = await changePassword(
       token as string,
       password,

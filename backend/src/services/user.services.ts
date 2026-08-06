@@ -40,7 +40,7 @@ export const createUser = async (body: userRegisterBody) => {
       await userExists.save();
 
       await sendMail(email, rawToken);
-      logger.info(`Verification email sent to ${email}`);
+      logger.info('Verification email sent to user');
       return {
         user: {
           _id: userExists._id,
@@ -105,7 +105,7 @@ export const verifyEmail = async (rawToken: string) => {
     }
     const isExpiredToken = isExpired(user.resetPasswordExpires);
     if (isExpiredToken) {
-      logger.info(`Token expired for ${user.username}`);
+      logger.info('Token expired for user verification');
       throw new UnAuthorizedRequest('Token expired');
     }
 
@@ -126,7 +126,7 @@ export const verifyEmail = async (rawToken: string) => {
 export const login = async (body: userLoginBody, req: Request) => {
   try {
     const { email, password } = body;
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ email }).select('+password');
     if (!userExists || !userExists.isEmailVerified) {
       throw new UnAuthorizedRequest('User not found or account not verified');
     }
@@ -136,7 +136,7 @@ export const login = async (body: userLoginBody, req: Request) => {
       throw new UnAuthorizedRequest('Invalid email or password');
     }
 
-    const { token } = signJwtToken({ userId: userExists._id }, '1h');
+    const { token } = signJwtToken({ userId: String(userExists._id) }, '1h');
 
     const rawToken = crypto.randomBytes(32).toString('hex');
     const hashedToken = crypto
@@ -165,7 +165,7 @@ export const login = async (body: userLoginBody, req: Request) => {
       logger.error('Login mail failed', { message: e.message }),
     );
 
-    logger.info('User logged in successfully', { email, location, device });
+    logger.info('User logged in successfully', { location, device });
     return {
       jwtToken: token,
       refreshToken: rawToken,
@@ -216,10 +216,10 @@ export const refreshAccessToken = async (rawRefreshToken: string) => {
     }
 
     const { token: newJwtToken } = signJwtToken(
-      { userId: storedToken.userId },
+      { userId: String(storedToken.userId) },
       '15m',
     );
-    logger.info(`Access token refreshed for userId ${storedToken.userId}`);
+    logger.info('Access token refreshed successfully');
     return { jwtToken: newJwtToken };
   } catch (e) {
     logger.error('Token refresh error', {
@@ -248,7 +248,7 @@ export const forgot = async (email: string) => {
     await userExists.save();
 
     await sendForgotPasswordMail(email, rawToken);
-    logger.info(`Password reset email sent to ${email}`);
+    logger.info('Password reset email sent');
     return {
       message: 'Email sent to account if it exists',
       success: true,
@@ -280,8 +280,12 @@ export const changePassword = async (rawToken: string, password: string) => {
     user.passwordTokenHash = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
+    
+    // Revoke all refresh tokens on password change
+    await RefreshToken.deleteMany({ userId: user._id });
+
     await sendPasswordResetSuccessMail(user.email, user.username);
-    logger.info(`Password changed successfully for ${user.username}`);
+    logger.info('Password changed successfully');
     return {
       message: 'Password changed successfully',
       success: true,
@@ -312,6 +316,8 @@ export const deleteUserFromDb = async (
   userId: string | mongoose.Types.ObjectId,
 ) => {
   try {
+    // Revoke all refresh tokens on account deletion
+    await RefreshToken.deleteMany({ userId });
     const user = await User.findByIdAndDelete(userId);
     return user;
   } catch (e) {

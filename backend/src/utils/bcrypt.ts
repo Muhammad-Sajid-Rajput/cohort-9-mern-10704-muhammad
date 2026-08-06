@@ -1,14 +1,27 @@
-import bcrypt from "bcrypt";
+import bcrypt from 'bcrypt';
+
 export async function hashPassword(value: string, hashSalt = 11) {
-  if (hashSalt < 0 || hashSalt > 100) {
-    hashSalt = 10;
+  try {
+    if (hashSalt < 0 || hashSalt > 100) {
+      hashSalt = 10;
+    }
+    return await bcrypt.hash(value, hashSalt);
+  } catch (e) {
+    throw new Error(
+      `Password hashing failed: ${e instanceof Error ? e.message : e}`,
+    );
   }
-  return await bcrypt.hash(value, hashSalt);
 }
 
 export async function comparePassword(
   candidatePassword: string,
   originalPassword: string,
 ) {
-  return await bcrypt.compare(candidatePassword, originalPassword);
+  try {
+    return await bcrypt.compare(candidatePassword, originalPassword);
+  } catch (e) {
+    throw new Error(
+      `Password comparison failed: ${e instanceof Error ? e.message : e}`,
+    );
+  }
 }

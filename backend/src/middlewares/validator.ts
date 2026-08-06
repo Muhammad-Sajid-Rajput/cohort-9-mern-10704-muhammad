@@ -19,7 +19,7 @@ export const validationJwtMiddleware = async (
     if (!decoded.userId) {
       throw new UnauthorizedAccess('Invalid token payload');
     }
-    req.userId = decoded.userId;
+    req.userId = String(decoded.userId);
     nextFn();
   } catch (e) {
     nextFn(e);

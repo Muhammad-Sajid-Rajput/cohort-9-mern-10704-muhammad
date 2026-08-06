@@ -7,7 +7,7 @@ export interface IUser extends Document {
   password: string;
   createdAt: Date;
   updatedAt: Date;
-  profilePicture?: string;
+  profilePicture?: string | null;
   passwordTokenHash?: string;
   resetPasswordExpires?: Date;
   isEmailVerified: boolean;
@@ -33,7 +33,7 @@ const userSchema = new mongoose.Schema<IUser>(
       type: String,
       required: true,
       trim: true,
-      select: true,
+      select: false,
     },
     isEmailVerified: {
       type: Boolean,
@@ -57,8 +57,14 @@ const userSchema = new mongoose.Schema<IUser>(
 );
 
 userSchema.pre('save', async function () {
-  if (this.isModified('password') && this.password) {
-    this.password = await hashPassword(this.password);
+  try {
+    if (this.isModified('password') && this.password) {
+      this.password = await hashPassword(this.password);
+    }
+  } catch (e) {
+    throw new Error(
+      `Password pre-save hashing failed: ${e instanceof Error ? e.message : e}`,
+    );
   }
 });
 

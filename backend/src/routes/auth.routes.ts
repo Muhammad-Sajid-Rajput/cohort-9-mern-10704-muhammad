@@ -33,7 +33,7 @@ authRoute.post(
 );
 authRoute.get('/verify/:token', verifyUser);
 
-authRoute.get('/refreshToken', getRefreshToken);
+authRoute.post('/refreshToken', getRefreshToken);
 
 authRoute.post(
   '/forgotPassword',
@@ -49,5 +49,5 @@ authRoute.post(
 
 authRoute.get('/me', validationJwtMiddleware, me);
 
-authRoute.get('/logout', validationJwtMiddleware, logoutUser);
-authRoute.delete('/deleteuser', validationJwtMiddleware, deleteUser);
+authRoute.post('/logout', logoutUser);
+authRoute.delete('/deleteUser', validationJwtMiddleware, deleteUser);

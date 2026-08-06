@@ -1,12 +1,10 @@
 import jwt from 'jsonwebtoken';
 import { StringValue } from 'ms';
-import mongoose from 'mongoose';
 
 export type AccessPayload = {
-  userId: string | mongoose.Types.ObjectId;
+  userId: string;
 };
 
-// Alias for backward compatibility
 export type AcsessPayload = AccessPayload;
 
 export type tokenResult = {
@@ -34,6 +32,9 @@ export const verifyJwtToken = (token: string): AccessPayload => {
   if (!secret) {
     throw new Error('JWT secret not found');
   }
-  const decoded = jwt.verify(token, secret) as AccessPayload;
+  const decoded = jwt.verify(token, secret, {
+    algorithms: ['HS256'],
+    issuer: '10pInternship-notesApp',
+  }) as AccessPayload;
   return decoded;
 };

@@ -6,6 +6,7 @@ export interface IRefreshToken extends Document {
   expiresAt: Date;
   createdAt: Date;
   updatedAt: Date;
+  isExpired(): boolean;
 }
 
 const refreshTokenSchema = new mongoose.Schema<IRefreshToken>(
