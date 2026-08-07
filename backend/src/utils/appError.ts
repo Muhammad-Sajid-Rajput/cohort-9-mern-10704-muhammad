@@ -21,7 +21,7 @@ export class AppError extends Error {
   }
 }
 
-export class UnAuthorizedAcsess extends AppError {
+export class UnauthorizedAccess extends AppError {
   constructor(message = 'Unauthorized Access', errorCode?: ErrorCodeEnumKeys) {
     super(
       message,
@@ -30,6 +30,8 @@ export class UnAuthorizedAcsess extends AppError {
     );
   }
 }
+
+export class UnAuthorizedAcsess extends UnauthorizedAccess { }
 
 export class UnAuthorizedRequest extends AppError {
   constructor(message = 'Unauthorized Request', errorCode?: ErrorCodeEnumKeys) {

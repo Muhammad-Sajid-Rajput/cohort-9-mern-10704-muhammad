@@ -1,42 +1,30 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-error.log*
-
-# Runtime data
-*.pid
-*.pid.lock
-
-# Coverage
-coverage
-*.lcov
-.nyc_output
-
-# Dependency directories
+# Dependencies
 node_modules/
 **/node_modules/
 
-# TypeScript cache
-*.tsbuildinfo
-
-# npm cache
-.npm
-
-# ESLint cache
-.eslintcache
-
-# dotenv files
+# Environment files
 .env
 .env.*
 !.env.example
+**/.env
+**/.env.*
+!**/.env.example
 
-# Build output
-dist
-build
+# Logs
+logs/
+**/logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
 
-# Vite
-.cache
-.parcel-cache
-vite.config.js.timestamp-*
-vite.config.ts.timestamp-*
+# Build outputs
+dist/
+**/dist/
+.cache/
+.tsbuildinfo
+
+# IDE & OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
