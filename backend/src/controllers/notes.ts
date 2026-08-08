@@ -49,12 +49,10 @@ export const getAllNotes = asyncHandler(
     const userId = req.user?._id;
     if (!userId) throw new UnauthorizedAccess('User not authenticated');
     const { page, limit, search, tag } = notesQuerySchema.parse(req.query);
-    const pageNum = Number(page);
-    const limitNum = Number(limit);
     const allNotes = await getAllNotesOf(userId, {
-      page: pageNum,
-      limit: limitNum,
-      skip: (pageNum - 1) * limitNum,
+      page,
+      limit,
+      skip: (page - 1) * limit,
       search,
       tag,
     });

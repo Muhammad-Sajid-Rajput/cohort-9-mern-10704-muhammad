@@ -75,6 +75,9 @@ interface INoteFilter {
   $or?: Array<{ [key: string]: { $regex: string; $options: string } }>;
 }
 
+const escapeRegex = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export const getAllNotesOf = async (
   userId: MongooseIdOrString,
   query: NoteQuery,
@@ -83,10 +86,11 @@ export const getAllNotesOf = async (
 
   const filter: INoteFilter = { user: userId };
   if (search) {
+    const escaped = escapeRegex(search);
     filter.$or = [
-      { title: { $regex: search, $options: 'i' } },
-      { content: { $regex: search, $options: 'i' } },
-      { tags: { $regex: search, $options: 'i' } },
+      { title: { $regex: escaped, $options: 'i' } },
+      { content: { $regex: escaped, $options: 'i' } },
+      { tags: { $regex: escaped, $options: 'i' } },
     ];
   }
 
@@ -94,22 +98,27 @@ export const getAllNotesOf = async (
     filter.tags = tag as NoteTag;
   }
 
-  const [notes, total] = await Promise.all([
-    Note.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
-    Note.countDocuments(filter),
-  ]);
+  try {
+    const [notes, total] = await Promise.all([
+      Note.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Note.countDocuments(filter),
+    ]);
 
-  return {
-    message: 'Notes fetched successfully',
-    success: true,
-    notes,
-    pagination: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    },
-  };
+    return {
+      message: 'Notes fetched successfully',
+      success: true,
+      notes,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  } catch (e) {
+    logger.error('Error fetching notes', { error: e instanceof Error ? e.message : e });
+    throw e;
+  }
 };
 
 export const getNoteOf = async (
