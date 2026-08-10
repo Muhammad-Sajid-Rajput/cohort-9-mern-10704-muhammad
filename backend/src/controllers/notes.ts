@@ -1,6 +1,6 @@
 import { asyncHandler } from '../middlewares/asyncHandler';
 import type { Request, Response } from 'express';
-import { NotesBody } from '../types/notes.types';
+import { noteSchemaValidationBody, notesQuerySchema, paramsSchema } from '../schemas/notes.zod';
 import {
   createNoteOf,
   deleteAllNotesOf,
@@ -11,14 +11,14 @@ import {
 } from '../services/notes.services';
 import { HTTPSTATUS } from '../utils/enums';
 import { UnauthorizedAccess } from '../utils/appError';
-import { notesQuerySchema, paramsSchema } from '../schemas/notes.zod';
 import { toObjectId } from '../utils/toObjectId';
 
 export const createNote = asyncHandler(
   async (req: Request, res: Response) => {
     const userId = req.user?._id;
     if (!userId) throw new UnauthorizedAccess('User not authenticated');
-    const createdNote = await createNoteOf(userId, req.body as NotesBody);
+    const noteBody = noteSchemaValidationBody.parse(req.body);
+    const createdNote = await createNoteOf(userId, noteBody);
     return res.status(HTTPSTATUS.CREATED).json({
       message: createdNote.message,
       success: createdNote.success,
@@ -31,10 +31,11 @@ export const editNote = asyncHandler(
   async (req: Request, res: Response) => {
     const { noteId } = paramsSchema.parse(req.params);
     if (!req.user?._id) throw new UnauthorizedAccess('User not authenticated');
+    const noteBody = noteSchemaValidationBody.parse(req.body);
     const editedNote = await editNoteOf(
       toObjectId(req.user._id),
       toObjectId(noteId),
-      req.body as NotesBody,
+      noteBody,
     );
     return res.status(HTTPSTATUS.OK).json({
       message: editedNote.message,
