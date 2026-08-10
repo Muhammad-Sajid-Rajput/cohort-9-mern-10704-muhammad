@@ -110,10 +110,10 @@ export const deleteAllNotes = asyncHandler(
 
 export const chat = asyncHandler(
   async (req: Request, res: Response) => {
-    const { message } = chatSchema.parse(req.body);
     const userId = req.user?._id;
     if (!userId) throw new UnauthorizedAccess('User not authenticated');
-    const result = await augmententRetrival(message, userId);
+    const { message } = chatSchema.parse(req.body);
+    const result = await augmententRetrival(message, toObjectId(userId));
     return res.status(HTTPSTATUS.OK).json({
       success: result?.success,
       reply: result?.reply,
