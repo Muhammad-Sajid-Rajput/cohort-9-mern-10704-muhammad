@@ -22,3 +22,7 @@ export const notesQuerySchema = z.object({
   search: z.string().optional().default(''),
   tag: z.string().optional().default(''),
 });
+
+export const chatSchema = z.object({
+  message: z.string().trim().min(1).max(2000),
+});

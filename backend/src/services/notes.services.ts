@@ -3,6 +3,11 @@ import { logger } from '../utils/logger';
 import { Note, NoteTag } from '../models/notes';
 import { BadRequest } from '../utils/appError';
 import { NotesBody } from '../types/notes.types';
+import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
+import { getEmbedding, getEmbeddings } from '../utils/getEmbedings';
+import { NoteChunk } from '../models/notes.chunk';
+import { toObjectId } from '../utils/toObjectId';
+import { sendToGemni } from '../utils/gemni';
 
 type MongooseIdOrString = string | mongoose.Types.ObjectId;
 
@@ -18,6 +23,24 @@ export const createNoteOf = async (
       tags: tags as NoteTag[],
       user: userId,
     });
+
+    const splitter = new RecursiveCharacterTextSplitter({
+      chunkSize: 400,
+      chunkOverlap: 100,
+    });
+    const chunks = await splitter.splitText(body);
+    const chunksWithTitle = chunks.map((chunk: string) => `${title}\n\n${chunk}`);
+    const embeddings = await getEmbeddings(chunksWithTitle);
+    const docs = chunksWithTitle.map((chunk, i) => ({
+      user: userId,
+      content: chunk,
+      noteId: note._id,
+      noteTitle: title,
+      embedding: embeddings[i],
+      chunkIndex: i,
+    }));
+    await NoteChunk.insertMany(docs);
+
     return { message: 'Note created successfully', success: true, note };
   } catch (e) {
     logger.error('Error creating note', { error: e instanceof Error ? e.message : e });
@@ -33,20 +56,31 @@ export const editNoteOf = async (
   try {
     const { title, body, tags } = noteBody;
     const noteExists = await Note.findOneAndUpdate(
-      {
-        _id: noteId,
-        user: userId,
-      },
-      {
-        title,
-        content: body,
-        tags,
-      },
+      { _id: noteId, user: userId },
+      { title, content: body, tags },
       { new: true },
     );
     if (!noteExists) {
       throw new BadRequest('Note not found or unauthorized');
     }
+
+    await NoteChunk.deleteMany({ noteId, user: userId });
+    const splitter = new RecursiveCharacterTextSplitter({
+      chunkSize: 400,
+      chunkOverlap: 100,
+    });
+    const chunks = await splitter.splitText(body);
+    const chunksWithTitle = chunks.map((chunk: string) => `${title}\n\n${chunk}`);
+    const embeddings = await getEmbeddings(chunksWithTitle);
+    const docs = chunksWithTitle.map((chunk, i) => ({
+      user: toObjectId(userId),
+      content: chunk,
+      noteId,
+      noteTitle: title,
+      embedding: embeddings[i],
+      chunkIndex: i,
+    }));
+    await NoteChunk.insertMany(docs);
 
     return {
       message: 'Note updated successfully',
@@ -54,9 +88,7 @@ export const editNoteOf = async (
       note: noteExists,
     };
   } catch (e) {
-    logger.error('Error updating note', {
-      error: e instanceof Error ? e.message : e,
-    });
+    logger.error('Error updating note', { error: e instanceof Error ? e.message : e });
     throw e;
   }
 };
@@ -126,22 +158,13 @@ export const getNoteOf = async (
   noteId: MongooseIdOrString,
 ) => {
   try {
-    const note = await Note.findOne({
-      _id: noteId,
-      user: userId,
-    });
+    const note = await Note.findOne({ _id: noteId, user: userId });
     if (!note) {
       throw new BadRequest('Note not found');
     }
-    return {
-      message: 'Note fetched successfully',
-      success: true,
-      note,
-    };
+    return { message: 'Note fetched successfully', success: true, note };
   } catch (e) {
-    logger.error('Error fetching note', {
-      error: e instanceof Error ? e.message : e,
-    });
+    logger.error('Error fetching note', { error: e instanceof Error ? e.message : e });
     throw e;
   }
 };
@@ -151,23 +174,14 @@ export const deleteNoteOf = async (
   noteId: MongooseIdOrString,
 ) => {
   try {
-    const note = await Note.findOneAndDelete({
-      _id: noteId,
-      user: userId,
-    });
+    const note = await Note.findOneAndDelete({ _id: noteId, user: userId });
     if (!note) {
       throw new BadRequest('Note not found for this user');
     }
-
-    return {
-      message: 'Note deleted successfully',
-      success: true,
-      note,
-    };
+    await NoteChunk.deleteMany({ noteId, user: userId });
+    return { message: 'Note deleted successfully', success: true, note };
   } catch (e) {
-    logger.error('Error deleting note', {
-      error: e instanceof Error ? e.message : e,
-    });
+    logger.error('Error deleting note', { error: e instanceof Error ? e.message : e });
     throw e;
   }
 };
@@ -175,13 +189,86 @@ export const deleteNoteOf = async (
 export const deleteAllNotesOf = async (userId: MongooseIdOrString) => {
   try {
     const result = await Note.deleteMany({ user: userId });
-    return {
-      message: 'All notes deleted successfully',
-      success: true,
-      notes: result,
-    };
+    await NoteChunk.deleteMany({ user: userId });
+    return { message: 'All notes deleted successfully', success: true, notes: result };
   } catch (e) {
     logger.error('Error deleting all notes', { error: e instanceof Error ? e.message : e });
+    throw e;
+  }
+};
+
+export const augmententRetrival = async (
+  message: string,
+  userId: string | mongoose.Types.ObjectId,
+) => {
+  try {
+    let context = '';
+
+    try {
+      const chatMessageEmbed = await getEmbedding(message);
+      const relevantChunks = await NoteChunk.aggregate([
+        {
+          $vectorSearch: {
+            index: 'vector_index',
+            path: 'embedding',
+            queryVector: chatMessageEmbed,
+            numCandidates: 100,
+            limit: 5,
+            filter: { user: toObjectId(userId) },
+          },
+        },
+        {
+          $project: {
+            content: 1,
+            noteTitle: 1,
+            score: { $meta: 'vectorSearchScore' },
+          },
+        },
+      ]);
+
+      context = relevantChunks
+        .map((chunk, i) => `[Note ${i + 1}] ${chunk.content}`)
+        .join('\n\n');
+    } catch (embeddingErr) {
+      logger.warn('Vector embedding failed, falling back to text search context', {
+        error: embeddingErr instanceof Error ? embeddingErr.message : embeddingErr,
+      });
+
+      const fallbackNotes = await Note.find({ user: userId }).limit(5);
+      context = fallbackNotes
+        .map((n, i) => `[Note ${i + 1}] Title: ${n.title}\nContent: ${n.content}`)
+        .join('\n\n');
+    }
+
+    if (!context) {
+      return { reply: "I couldn't find anything relevant in your notes.", success: true };
+    }
+
+    const prompt = `You are a smart, witty notes assistant with range. You adapt your tone to the situation.
+
+    Tone rules:
+    - Casual/personal questions (grocery, gym, life stuff) → be funny, sarcastic, Chandler Bing energy
+    - Serious/work questions (deadlines, meetings, tasks) → be sharp and direct, maybe one dry quip max, then give the actual answer clearly
+    - Dumb/obvious questions → roast them, but still answer
+    - If answer isn't in notes → say so bluntly, no fluff
+
+    Response rules:
+    - ONLY use information from the notes below. Never invent or assume.
+    - Keep it SHORT. 4-6 sentences max. No padding, no "Great question!", no essays.
+    - End with the actual useful info, always. Humor is the wrapper, not the content.
+    - If the question is vague, answer what you can and point out the vagueness once.
+
+    Notes:
+    ${context}
+
+    Question: ${message}
+
+    Reply: sharp, adapted tone, useful answer, done.`;
+
+    const resp = await sendToGemni(prompt);
+    return { reply: resp?.reply, success: true };
+  } catch (e) {
+    logger.error('Error in RAG pipeline', { error: e instanceof Error ? e.message : e });
     throw e;
   }
 };
