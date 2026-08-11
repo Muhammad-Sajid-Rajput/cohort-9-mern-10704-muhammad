@@ -174,11 +174,15 @@ export const deleteNoteOf = async (
   noteId: MongooseIdOrString,
 ) => {
   try {
-    const note = await Note.findOneAndDelete({ _id: noteId, user: userId });
+    const [note] = await Promise.all([
+      Note.findOneAndDelete({ _id: noteId, user: userId }),
+      NoteChunk.deleteMany({ noteId, user: userId }),
+    ]);
+
     if (!note) {
       throw new BadRequest('Note not found for this user');
     }
-    await NoteChunk.deleteMany({ noteId, user: userId });
+
     return { message: 'Note deleted successfully', success: true, note };
   } catch (e) {
     logger.error('Error deleting note', { error: e instanceof Error ? e.message : e });
@@ -188,14 +192,23 @@ export const deleteNoteOf = async (
 
 export const deleteAllNotesOf = async (userId: MongooseIdOrString) => {
   try {
-    const result = await Note.deleteMany({ user: userId });
-    await NoteChunk.deleteMany({ user: userId });
+    const [result] = await Promise.all([
+      Note.deleteMany({ user: userId }),
+      NoteChunk.deleteMany({ user: userId }),
+    ]);
+
     return { message: 'All notes deleted successfully', success: true, notes: result };
   } catch (e) {
     logger.error('Error deleting all notes', { error: e instanceof Error ? e.message : e });
     throw e;
   }
 };
+
+interface RelevantChunk {
+  content: string;
+  noteTitle: string;
+  score: number;
+}
 
 export const augmententRetrival = async (
   message: string,
@@ -206,7 +219,7 @@ export const augmententRetrival = async (
 
     try {
       const chatMessageEmbed = await getEmbedding(message);
-      const relevantChunks = await NoteChunk.aggregate([
+      const relevantChunks = await NoteChunk.aggregate<RelevantChunk>([
         {
           $vectorSearch: {
             index: 'vector_index',

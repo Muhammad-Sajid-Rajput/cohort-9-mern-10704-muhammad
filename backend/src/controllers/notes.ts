@@ -30,11 +30,12 @@ export const createNote = asyncHandler(
 
 export const editNote = asyncHandler(
   async (req: Request, res: Response) => {
+    const userId = req.user?._id;
+    if (!userId) throw new UnauthorizedAccess('User not authenticated');
     const { noteId } = paramsSchema.parse(req.params);
-    if (!req.user?._id) throw new UnauthorizedAccess('User not authenticated');
     const noteBody = noteSchemaValidationBody.parse(req.body);
     const editedNote = await editNoteOf(
-      toObjectId(req.user._id),
+      toObjectId(userId),
       toObjectId(noteId),
       noteBody,
     );
