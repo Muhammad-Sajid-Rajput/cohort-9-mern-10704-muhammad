@@ -1,7 +1,8 @@
 import { asyncHandler } from '../middlewares/asyncHandler';
 import type { Request, Response } from 'express';
-import { noteSchemaValidationBody, notesQuerySchema, paramsSchema } from '../schemas/notes.zod';
+import { noteSchemaValidationBody, notesQuerySchema, paramsSchema, chatSchema } from '../schemas/notes.zod';
 import {
+  augmententRetrival,
   createNoteOf,
   deleteAllNotesOf,
   deleteNoteOf,
@@ -29,11 +30,12 @@ export const createNote = asyncHandler(
 
 export const editNote = asyncHandler(
   async (req: Request, res: Response) => {
+    const userId = req.user?._id;
+    if (!userId) throw new UnauthorizedAccess('User not authenticated');
     const { noteId } = paramsSchema.parse(req.params);
-    if (!req.user?._id) throw new UnauthorizedAccess('User not authenticated');
     const noteBody = noteSchemaValidationBody.parse(req.body);
     const editedNote = await editNoteOf(
-      toObjectId(req.user._id),
+      toObjectId(userId),
       toObjectId(noteId),
       noteBody,
     );
@@ -103,6 +105,19 @@ export const deleteAllNotes = asyncHandler(
       message: deletedNotes.message,
       success: deletedNotes.success,
       notes: deletedNotes.notes,
+    });
+  },
+);
+
+export const chat = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?._id;
+    if (!userId) throw new UnauthorizedAccess('User not authenticated');
+    const { message } = chatSchema.parse(req.body);
+    const result = await augmententRetrival(message, toObjectId(userId));
+    return res.status(HTTPSTATUS.OK).json({
+      success: result?.success,
+      reply: result?.reply,
     });
   },
 );

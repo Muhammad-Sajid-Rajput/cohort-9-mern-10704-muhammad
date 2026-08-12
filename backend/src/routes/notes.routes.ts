@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  chat,
   createNote,
   deleteAllNotes,
   deleteNote,
@@ -21,3 +22,4 @@ notesRoutes.get('/', getAllNotes);
 notesRoutes.get('/:noteId', getNote);
 notesRoutes.delete('/:noteId', deleteNote);
 notesRoutes.delete('/', deleteAllNotes);
+notesRoutes.post('/chat', chat);
