@@ -1,0 +1,250 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-on-primary: var(--primary-foreground);
+
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+
+  --color-card-pastel-1: var(--card-pastel-1);
+  --color-card-pastel-2: var(--card-pastel-2);
+  --color-card-pastel-3: var(--card-pastel-3);
+  --color-card-pastel-4: var(--card-pastel-4);
+  --color-card-pastel-5: var(--card-pastel-5);
+}
+
+:root {
+  --color-primary: #A90E02;
+  --color-primary-hover: #7F0A02;
+  --color-primary-tint: #FBEAE7;
+
+  --color-accent-warm: #FFFBD4;
+
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #334155;
+  --color-text-muted: #64748B;
+  --color-text-heading: #0F172A;
+  --color-text-label: #1E293B;
+  --color-text-body: #475569;
+
+  --color-border: #E2E8F0;
+  --color-border-subtle: #F1F5F9;
+  --color-input-bg: #F8FAFC;
+  --color-bg-page: #F8FAFC;
+  --color-bg-surface: #FFFFFF;
+  --color-bg-muted: #F1F5F9;
+
+  --color-success: #15803D;
+  --color-warning: #B45309;
+  --color-destructive: #E11D48;
+  --color-destructive-border: #EF4444;
+  --color-on-semantic: #FFFFFF;
+
+  --font-family-ui: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family-editor: 'Plus Jakarta Sans', Georgia, serif;
+
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 24px;
+  --font-size-2xl: 32px;
+
+  --line-height-body: 1.5;
+  --line-height-heading: 1.25;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 600;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 12px 24px rgba(15, 23, 42, 0.12);
+
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --easing-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --easing-exit: cubic-bezier(0.7, 0, 0.84, 0);
+
+  --touch-target-min: 44px;
+  --focus-ring-width: 3px;
+  --focus-ring-color: var(--color-primary-tint);
+
+  --background: var(--color-bg-page, #F8FAFC);
+  --surface: var(--color-bg-surface, #FFFFFF);
+  --surface-hover: var(--color-primary-tint, #FBEAE7);
+
+  --primary: var(--color-primary, #A90E02);
+  --primary-hover: var(--color-primary-hover, #7F0A02);
+  --primary-foreground: var(--color-on-semantic, #FFFFFF);
+
+  --on-surface: var(--color-text-primary, #0F172A);
+  --on-surface-variant: var(--color-text-secondary, #334155);
+
+  --outline: var(--color-border, #E2E8F0);
+  --outline-variant: var(--color-border, #E2E8F0);
+
+  --muted: var(--color-text-muted, #64748B);
+
+  --card-pastel-1: #FFF0D6;
+  --card-pastel-2: #FFD6D6;
+  --card-pastel-3: #EBD6FF;
+  --card-pastel-4: #D6FFF0;
+  --card-pastel-5: #D6F0FF;
+}
+
+[data-theme='dark'] {
+  --color-bg-page: #0F172A;
+  --color-bg-surface: #1E293B;
+  --color-text-primary: #F1F5F9;
+  --color-text-secondary: #CBD5E1;
+  --color-text-muted: #94A3B8;
+  --color-border: #334155;
+
+  --color-primary-dark: #F87171;
+  --color-accent-warm-dark: #FFFBD4;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.5);
+}
+
+@layer base {
+  body {
+    background-color: var(--background);
+    color: var(--on-surface);
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .bg-grid-pattern {
+    background-color: #FFFFFF;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Cpath d='M0 20 L20 0 L40 20 L20 40 Z' fill='none' stroke='%23CBD5E1' stroke-width='1.2'/%3E%3C/svg%3E");
+    background-size: 40px 40px;
+    background-repeat: repeat;
+  }
+}
+
+@layer components {
+  .card-gradient {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card-gradient::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
+    pointer-events: none;
+  }
+
+  .prose h1 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-bottom: 1.25rem;
+    color: var(--on-surface);
+    letter-spacing: -0.025em;
+  }
+
+  .prose h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    color: var(--on-surface);
+    letter-spacing: -0.025em;
+  }
+
+  .prose p {
+    font-size: 15px;
+    color: var(--on-surface-variant);
+    line-height: 1.625;
+    margin-bottom: 1rem;
+  }
+
+  .prose blockquote {
+    border-left: 4px solid var(--primary);
+    padding-left: 1.25rem;
+    padding-top: 0.375rem;
+    padding-bottom: 0.375rem;
+    font-style: italic;
+    font-size: 1rem;
+    border-top-right-radius: 0.5rem;
+    border-bottom-right-radius: 0.5rem;
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
+    background-color: var(--surface-hover);
+    color: var(--on-surface);
+  }
+
+  .prose code {
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.375rem;
+    font-family: monospace;
+    font-size: 13px;
+    color: var(--primary);
+    background-color: var(--surface-hover);
+  }
+
+  .prose pre {
+    background-color: #171717;
+    color: #ffffff;
+    padding: 1.5rem;
+    border-radius: 1rem;
+    overflow-x: auto;
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #E5E5E5;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #D4D4D4;
+}
