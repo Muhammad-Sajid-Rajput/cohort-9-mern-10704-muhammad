@@ -11,6 +11,8 @@ import {
   Plus,
   Search,
   BookOpen,
+  Menu,
+  X,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
@@ -18,12 +20,10 @@ interface AppLayoutProps {
   children: React.ReactNode;
 }
 
-/**
- * Root application shell layout with navigation sidebar and workspace header.
- */
 export const AppLayout = ({ children }: AppLayoutProps) => {
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navigation = [
     { name: 'All Notes', href: '/notes', icon: FileText },
@@ -35,20 +35,43 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden text-on-surface">
-      <aside className="w-64 border-r border-outline-variant bg-surface flex flex-col justify-between p-4 select-none">
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-neutral-900/40 backdrop-blur-xs md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 w-64 border-r border-outline-variant bg-surface flex flex-col justify-between p-4 select-none transition-transform duration-200 md:static md:translate-x-0',
+          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
         <div className="space-y-6">
-          <div className="flex items-center gap-3 px-2">
-            <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm">
-              <BookOpen className="h-5 w-5" />
+          <div className="flex items-center justify-between px-2">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm">
+                <BookOpen className="h-5 w-5" />
+              </div>
+              <div>
+                <h1 className="font-extrabold text-base tracking-tight leading-none text-on-surface">NotesHub</h1>
+                <span className="text-[10px] font-semibold tracking-wider text-on-surface-variant uppercase">Workspace</span>
+              </div>
             </div>
-            <div>
-              <h1 className="font-extrabold text-base tracking-tight leading-none text-on-surface">NotesHub</h1>
-              <span className="text-[10px] font-semibold tracking-wider text-on-surface-variant uppercase">Workspace</span>
-            </div>
+            <button
+              type="button"
+              aria-label="Close navigation"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="p-1.5 text-on-surface-variant hover:text-on-surface md:hidden rounded-lg hover:bg-surface-hover"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
 
           <Link
             to="/notes/new"
+            onClick={() => setIsMobileMenuOpen(false)}
             className="w-full flex items-center justify-center gap-2 rounded-xl h-10 transition-colors shadow-sm font-extrabold text-xs uppercase tracking-wider bg-primary hover:bg-primary-hover text-on-primary"
           >
             <Plus className="h-4 w-4" />
@@ -63,6 +86,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
                 <Link
                   key={item.name}
                   to={item.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
                   className={cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all',
                     isActive
@@ -81,6 +105,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
         <div className="pt-4 border-t border-outline-variant space-y-1">
           <Link
             to="/settings"
+            onClick={() => setIsMobileMenuOpen(false)}
             className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-on-surface-variant hover:bg-surface-hover hover:text-on-surface transition-all"
           >
             <div className="flex items-center gap-3">
@@ -109,8 +134,17 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 bg-background">
-        <header className="h-16 border-b border-outline-variant bg-surface px-6 flex items-center justify-between">
-          <div className="relative w-72">
+        <header className="h-16 border-b border-outline-variant bg-surface px-4 sm:px-6 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            aria-label="Open navigation"
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="p-2 -ml-2 text-on-surface-variant hover:text-on-surface md:hidden rounded-lg hover:bg-surface-hover"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+
+          <div className="relative flex-1 max-w-xs sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-on-surface-variant/60" />
             <input
               type="text"
@@ -121,7 +155,8 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
             />
           </div>
         </header>
-        <div className="flex-1 overflow-y-auto p-6">{children}</div>
+
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</div>
       </main>
     </div>
   );
