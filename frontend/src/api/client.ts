@@ -1,16 +1,25 @@
-import axios from "axios";
-import { API_CONSTANTS } from "../constants/api";
+import axios, { InternalAxiosRequestConfig } from 'axios';
+import { API_CONSTANTS } from '../constants/api';
+
+interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
+
+interface FailedRequest {
+  resolve: (value?: unknown) => void;
+  reject: (reason?: unknown) => void;
+}
 
 export const apiClient = axios.create({
   baseURL: API_CONSTANTS.BASE_URL,
   withCredentials: true,
-  headers: { "Content-Type": "application/json" },
+  headers: { 'Content-Type': 'application/json' },
 });
 
 let isRefreshing = false;
-let failedQueue: any[] = [];
+let failedQueue: FailedRequest[] = [];
 
-const processQueue = (error: any) => {
+const processQueue = (error: unknown = null) => {
   failedQueue.forEach((prom) => (error ? prom.reject(error) : prom.resolve()));
   failedQueue = [];
 };
@@ -18,23 +27,27 @@ const processQueue = (error: any) => {
 apiClient.interceptors.response.use(
   (res) => res.data,
   async (error) => {
-    const originalRequest = error.config;
-    if (error.response?.status !== 401 || originalRequest._retry)
+    const originalRequest = error.config as CustomAxiosRequestConfig | undefined;
+    if (!originalRequest || error.response?.status !== 401 || originalRequest._retry) {
       return Promise.reject(error);
+    }
+
     if (
       originalRequest.url?.match(
-        /\/(signin|signup|refreshToken|verify|reset-password|forgot-password)(\/|$)/,
+        /\/(signin|signup|refreshToken|verify|resetPassword|forgotPassword)(\/|$)/,
       )
-    )
+    ) {
       return Promise.reject(error);
-
-    if (isRefreshing) {
-      return new Promise((resolve, reject) =>
-        failedQueue.push({ resolve, reject }),
-      ).then(() => apiClient(originalRequest));
     }
 
     originalRequest._retry = true;
+
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        failedQueue.push({ resolve, reject });
+      }).then(() => apiClient(originalRequest));
+    }
+
     isRefreshing = true;
 
     try {
@@ -45,7 +58,7 @@ apiClient.interceptors.response.use(
       return apiClient(originalRequest);
     } catch (err) {
       processQueue(err);
-      window.dispatchEvent(new CustomEvent("auth:logout"));
+      window.dispatchEvent(new CustomEvent('auth:logout'));
       return Promise.reject(err);
     } finally {
       isRefreshing = false;

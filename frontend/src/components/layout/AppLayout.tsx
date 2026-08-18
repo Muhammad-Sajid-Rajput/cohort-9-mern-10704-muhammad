@@ -1,88 +1,128 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
-import { FileText, Plus, LogOut, Settings, LayoutGrid } from 'lucide-react';
-import { Button } from '../ui/Button';
+import React, { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import {
+  FileText,
+  Folder,
+  Tag,
+  Star,
+  Trash2,
+  Settings,
+  LogOut,
+  Plus,
+  Search,
+  BookOpen,
+} from 'lucide-react';
+import { cn } from '../../utils/cn';
 
-export const AppLayout = () => {
-	const location = useLocation();
+interface AppLayoutProps {
+  children: React.ReactNode;
+}
 
-	const navItems = [
-		{ label: 'All Notes', icon: LayoutGrid, path: '/dashboard' },
-	];
+/**
+ * Root application shell layout with navigation sidebar and workspace header.
+ */
+export const AppLayout = ({ children }: AppLayoutProps) => {
+  const location = useLocation();
+  const [searchQuery, setSearchQuery] = useState('');
 
-	return (
-		<div className="flex h-screen bg-background text-on-surface font-medium selection:bg-black selection:text-white">
-			<aside className="w-60 bg-white flex flex-col justify-between py-10 px-6 z-50 border-r border-outline-variant">
-				<div className="space-y-10 text-left">
-					<div className="px-2 flex items-center gap-3.5">
-						<div className="w-9 h-9 flex items-center justify-center rounded-lg shadow-sm" style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-on-semantic)' }}>
-							<FileText className="h-4.5 w-4.5" />
-						</div>
-						<h1 className="text-xl font-extrabold tracking-tight text-on-surface leading-none">NotesHub</h1>
-					</div>
+  const navigation = [
+    { name: 'All Notes', href: '/notes', icon: FileText },
+    { name: 'Favorites', href: '/favorites', icon: Star },
+    { name: 'Folders', href: '/folders', icon: Folder },
+    { name: 'Tags', href: '/tags', icon: Tag },
+    { name: 'Trash', href: '/trash', icon: Trash2 },
+  ];
 
-					<div className="px-0">
-						<Link to="/notes/new">
-							<Button className="w-full flex items-center justify-center gap-2 rounded-xl h-10 transition-colors shadow-sm font-extrabold text-xs uppercase tracking-wider" style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-on-semantic)' }}>
-								<Plus className="h-4 w-4" />
-								<span className="font-extrabold text-xs uppercase tracking-wider">New Note</span>
-							</Button>
-						</Link>
-					</div>
+  return (
+    <div className="flex h-screen bg-background overflow-hidden text-on-surface">
+      <aside className="w-64 border-r border-outline-variant bg-surface flex flex-col justify-between p-4 select-none">
+        <div className="space-y-6">
+          <div className="flex items-center gap-3 px-2">
+            <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm">
+              <BookOpen className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="font-extrabold text-base tracking-tight leading-none text-on-surface">NotesHub</h1>
+              <span className="text-[10px] font-semibold tracking-wider text-on-surface-variant uppercase">Workspace</span>
+            </div>
+          </div>
 
-					<nav className="space-y-1.5">
-						{navItems.map((item) => {
-							const isActive = location.pathname === item.path;
-							return (
-								<Link
-									key={item.label}
-									to={item.path}
-									className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all ${isActive
-										? 'bg-primary-tint text-primary font-bold border border-primary/20 shadow-sm'
-										: 'text-on-surface-variant hover:text-primary font-semibold'
-										}`}
-								>
-									<item.icon className="h-4.5 w-4.5" />
-									<span className="text-[14px]">{item.label}</span>
-								</Link>
-							);
-						})}
-					</nav>
-				</div>
+          <Link
+            to="/notes/new"
+            className="w-full flex items-center justify-center gap-2 rounded-xl h-10 transition-colors shadow-sm font-extrabold text-xs uppercase tracking-wider bg-primary hover:bg-primary-hover text-on-primary"
+          >
+            <Plus className="h-4 w-4" />
+            <span>New Note</span>
+          </Link>
 
-				<div className="space-y-6 text-left">
-					<div className="flex flex-col gap-1 text-left">
-						<Link to="/settings" className={`flex items-center gap-3.5 py-2.5 px-4 rounded-xl font-semibold transition-colors ${location.pathname === '/settings'
-								? 'bg-primary-tint text-primary font-bold border border-primary/20 shadow-sm'
-								: 'text-on-surface-variant hover:text-primary'
-							}`}>
-							<Settings className="h-4.5 w-4.5" />
-							<span className="text-[14px]">Settings</span>
-						</Link>
-					</div>
+          <nav className="space-y-1">
+            {navigation.map((item) => {
+              const isActive = location.pathname === item.href;
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all',
+                    isActive
+                      ? 'bg-surface-container text-primary font-bold shadow-xs'
+                      : 'text-on-surface-variant hover:bg-surface-hover hover:text-on-surface'
+                  )}
+                >
+                  <Icon className={cn('h-4 w-4', isActive ? 'text-primary' : 'text-on-surface-variant')} />
+                  {item.name}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
 
-					<div className="px-2 py-4 border-t border-outline-variant pt-6">
-						<div className="flex items-center justify-between">
-							<div className="flex items-center gap-3 overflow-hidden">
-								<div className="w-8 h-8 rounded-full bg-primary shrink-0 flex items-center justify-center text-white font-bold text-xs shadow-xs">
-									U
-								</div>
-								<div className="truncate text-[13px] font-bold text-on-surface">
-									User
-								</div>
-							</div>
-							<button aria-label="logout" className="p-2 text-on-surface-variant hover:text-red-500 transition-colors">
-								<LogOut className="h-4 w-4" />
-							</button>
-						</div>
-					</div>
-				</div>
-			</aside>
+        <div className="pt-4 border-t border-outline-variant space-y-1">
+          <Link
+            to="/settings"
+            className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-on-surface-variant hover:bg-surface-hover hover:text-on-surface transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <Settings className="h-4 w-4 text-on-surface-variant" />
+              <span>Settings</span>
+            </div>
+          </Link>
 
-			<main className="flex-1 overflow-y-auto bg-surface p-8 sm:p-10 relative">
-				<div className="max-w-275 mx-auto w-full">
-					<Outlet />
-				</div>
-			</main>
-		</div>
-	);
+          <div className="flex items-center justify-between px-3 py-2 mt-2">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <div className="h-7 w-7 rounded-full bg-primary-tint text-primary flex items-center justify-center font-bold text-xs">
+                U
+              </div>
+              <span className="text-xs font-semibold text-on-surface truncate">User Account</span>
+            </div>
+            <button
+              type="button"
+              aria-label="logout"
+              onClick={() => window.dispatchEvent(new CustomEvent('auth:logout'))}
+              className="p-2 text-on-surface-variant hover:text-error transition-colors rounded-lg hover:bg-surface-hover"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <main className="flex-1 flex flex-col min-w-0 bg-background">
+        <header className="h-16 border-b border-outline-variant bg-surface px-6 flex items-center justify-between">
+          <div className="relative w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-on-surface-variant/60" />
+            <input
+              type="text"
+              placeholder="Search notes..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-1.5 bg-surface-container-low border border-outline-variant rounded-xl text-xs text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
+            />
+          </div>
+        </header>
+        <div className="flex-1 overflow-y-auto p-6">{children}</div>
+      </main>
+    </div>
+  );
 };

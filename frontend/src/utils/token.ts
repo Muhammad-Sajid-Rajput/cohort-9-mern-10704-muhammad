@@ -1,1 +1,4 @@
-export const NO_OP = 'No token storage needed, httpOnly cookies are used.';
+/**
+ * Storage configuration strategy for authentication tokens.
+ */
+export const AUTH_STORAGE_MODE = 'httpOnly-cookie' as const;
