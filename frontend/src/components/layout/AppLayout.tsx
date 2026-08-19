@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   FileText,
@@ -25,6 +25,10 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const sidebarRef = useRef<HTMLElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const wasMobileMenuOpenRef = useRef(false);
+
   const navigation = [
     { name: 'All Notes', href: '/notes', icon: FileText },
     { name: 'Favorites', href: '/favorites', icon: Star },
@@ -32,6 +36,79 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
     { name: 'Tags', href: '/tags', icon: Tag },
     { name: 'Trash', href: '/trash', icon: Trash2 },
   ];
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) {
+      if (wasMobileMenuOpenRef.current) {
+        menuTriggerRef.current?.focus();
+        wasMobileMenuOpenRef.current = false;
+      }
+      return;
+    }
+
+    wasMobileMenuOpenRef.current = true;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsMobileMenuOpen(false);
+        return;
+      }
+
+      if (e.key === 'Tab' && sidebarRef.current && window.innerWidth < 768) {
+        const rawElements = Array.from(
+          sidebarRef.current.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          )
+        );
+
+        const focusableElements = rawElements.filter((el) => {
+          if (el.hasAttribute('disabled') || el.getAttribute('aria-hidden') === 'true') {
+            return false;
+          }
+          if (el instanceof HTMLInputElement && el.type === 'hidden') {
+            return false;
+          }
+          return el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0;
+        });
+
+        if (focusableElements.length === 0) return;
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (e.shiftKey && document.activeElement === firstElement) {
+          e.preventDefault();
+          lastElement.focus();
+        } else if (!e.shiftKey && document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement.focus();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    const focusTimer = setTimeout(() => {
+      if (sidebarRef.current && window.innerWidth < 768) {
+        const rawElements = Array.from(
+          sidebarRef.current.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          )
+        );
+        const firstFocusable = rawElements.find((el) => {
+          if (el.hasAttribute('disabled') || el.getAttribute('aria-hidden') === 'true') return false;
+          if (el instanceof HTMLInputElement && el.type === 'hidden') return false;
+          return el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0;
+        });
+        firstFocusable?.focus();
+      }
+    }, 0);
+
+    return () => {
+      clearTimeout(focusTimer);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMobileMenuOpen]);
 
   return (
     <div className="flex h-screen bg-background overflow-hidden text-on-surface">
@@ -43,6 +120,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       )}
 
       <aside
+        ref={sidebarRef}
         className={cn(
           'fixed inset-y-0 left-0 z-50 w-64 border-r border-outline-variant bg-surface flex flex-col justify-between p-4 select-none transition-transform duration-200 md:static md:translate-x-0',
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
@@ -136,6 +214,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       <main className="flex-1 flex flex-col min-w-0 bg-background">
         <header className="h-16 border-b border-outline-variant bg-surface px-4 sm:px-6 flex items-center justify-between gap-3">
           <button
+            ref={menuTriggerRef}
             type="button"
             aria-label="Open navigation"
             onClick={() => setIsMobileMenuOpen(true)}
