@@ -8,10 +8,6 @@ interface ModalProps {
   children: React.ReactNode;
   maxWidth?: string;
 }
-
-/**
- * Accessible dialog modal with focus trapping, Escape key closing, and focus restoration.
- */
 export const Modal = ({
   isOpen,
   onClose,
@@ -22,6 +18,11 @@ export const Modal = ({
   const titleId = useId();
   const modalRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -30,14 +31,27 @@ export const Modal = ({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        onCloseRef.current();
         return;
       }
 
       if (e.key === 'Tab' && modalRef.current) {
-        const focusableElements = modalRef.current.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        const rawElements = Array.from(
+          modalRef.current.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          )
         );
+
+        const focusableElements = rawElements.filter((el) => {
+          if (el.hasAttribute('disabled') || el.getAttribute('aria-hidden') === 'true') {
+            return false;
+          }
+          if (el instanceof HTMLInputElement && el.type === 'hidden') {
+            return false;
+          }
+          return el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0;
+        });
+
         if (focusableElements.length === 0) return;
 
         const firstElement = focusableElements[0];
@@ -57,9 +71,16 @@ export const Modal = ({
 
     const focusTimer = setTimeout(() => {
       if (modalRef.current) {
-        const firstFocusable = modalRef.current.querySelector<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        const rawElements = Array.from(
+          modalRef.current.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          )
         );
+        const firstFocusable = rawElements.find((el) => {
+          if (el.hasAttribute('disabled') || el.getAttribute('aria-hidden') === 'true') return false;
+          if (el instanceof HTMLInputElement && el.type === 'hidden') return false;
+          return el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0;
+        });
         firstFocusable?.focus();
       }
     }, 0);
@@ -69,7 +90,7 @@ export const Modal = ({
       window.removeEventListener('keydown', handleKeyDown);
       previousFocusRef.current?.focus();
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
