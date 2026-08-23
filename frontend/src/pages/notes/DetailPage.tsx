@@ -1,0 +1,1 @@
+export const DetailPage = () => <div className="p-6 font-bold">Note Detail</div>;

@@ -17,7 +17,7 @@ import {
 import { cn } from '../../utils/cn';
 
 interface AppLayoutProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 export const AppLayout = ({ children }: AppLayoutProps) => {

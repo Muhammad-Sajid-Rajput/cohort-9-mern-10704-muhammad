@@ -1,0 +1,1 @@
+export const SettingsPage = () => <div className="p-6 font-bold">Settings</div>;
