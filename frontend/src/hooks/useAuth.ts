@@ -3,7 +3,14 @@ import axios from 'axios';
 import { authApi } from '../api/auth.api';
 import { useAuthStore } from '../store/auth.store';
 import { uiActions } from '../utils/uiActions';
-import type { AuthResponse } from '../types/api.types';
+import type {
+  User,
+  AuthResponse,
+  SignupRequest,
+  SigninRequest,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
+} from '../types/api.types';
 
 export const useAuth = () => {
   const queryClient = useQueryClient();
@@ -15,7 +22,7 @@ export const useAuth = () => {
       try {
         const res = await authApi.me();
         const user = res.data?.user;
-        if (user) setAuth(user);
+        if (user) setAuth(user as User);
         return user;
       } catch (error) {
         if (axios.isAxiosError(error) && error.response?.status === 401) {
@@ -33,7 +40,7 @@ export const useAuth = () => {
   const handleAuthSuccess = (res: AuthResponse, fallbackMessage: string) => {
     const user = res.data?.user;
     if (user) {
-      setAuth(user);
+      setAuth(user as User);
       queryClient.setQueryData(['auth', 'me'], user);
       setInitialized(true);
     }
@@ -41,13 +48,13 @@ export const useAuth = () => {
   };
 
   const signinMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) => authApi.signin(data),
+    mutationFn: (data: SigninRequest) => authApi.signin(data),
     onSuccess: (res) => handleAuthSuccess(res, 'Successfully logged in.'),
     onError: uiActions.error,
   });
 
   const signupMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) => authApi.signup(data),
+    mutationFn: (data: SignupRequest) => authApi.signup(data),
     onSuccess: (res) => {
       clearAuth();
       queryClient.removeQueries({ queryKey: ['auth'] });
@@ -88,8 +95,8 @@ export const useAuth = () => {
     logout: logoutMutation.mutateAsync,
     deleteUser: deleteUserMutation.mutateAsync,
     verify: authApi.verify,
-    forgotPassword: authApi.forgotPassword,
-    resetPassword: ({ token, data }: { token: string; data: Record<string, unknown> }) =>
+    forgotPassword: (data: ForgotPasswordRequest) => authApi.forgotPassword(data),
+    resetPassword: ({ token, data }: { token: string; data: ResetPasswordRequest }) =>
       authApi.resetPassword(token, data),
   };
 };

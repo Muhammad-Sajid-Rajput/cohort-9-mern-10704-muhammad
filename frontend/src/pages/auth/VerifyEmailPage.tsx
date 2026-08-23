@@ -18,9 +18,17 @@ export const VerifyEmailPage = () => {
     const [message, setMessage] = useState('');
     const [isVerifyingCode, setIsVerifyingCode] = useState(false);
     const hasCalled = useRef(false);
+  const lastTokenRef = useRef<string | undefined>(undefined);
 
     useEffect(() => {
         const performVerification = async () => {
+            if (!token) return;
+            if (lastTokenRef.current !== token) {
+                lastTokenRef.current = token;
+                hasCalled.current = false;
+                setStatus('loading');
+                setVerificationCode(token);
+            }
             if (!token || hasCalled.current) return;
             hasCalled.current = true;
 

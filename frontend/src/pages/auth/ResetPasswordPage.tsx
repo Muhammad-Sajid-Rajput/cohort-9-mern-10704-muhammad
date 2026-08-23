@@ -1,3 +1,4 @@
+import { uiActions } from '../../utils/uiActions';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -31,7 +32,7 @@ export const ResetPasswordPage = () => {
             await resetPassword({ token, data });
             navigate('/login');
         } catch (error) {
-            console.error('Password reset failed', error);
+            uiActions.error(error instanceof Error ? error.message : 'Password reset failed. Token may be invalid or expired.');
         }
     };
 

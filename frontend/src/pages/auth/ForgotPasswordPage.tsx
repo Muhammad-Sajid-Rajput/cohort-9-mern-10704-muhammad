@@ -1,3 +1,4 @@
+import { uiActions } from '../../utils/uiActions';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -25,7 +26,7 @@ export const ForgotPasswordPage = () => {
             await forgotPassword(data);
             setIsSubmitted(true);
         } catch (error) {
-            console.error('Forgot password request failed', error);
+            uiActions.error(error instanceof Error ? error.message : 'Password recovery request failed.');
         }
     };
 

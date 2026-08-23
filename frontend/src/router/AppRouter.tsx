@@ -27,6 +27,11 @@ export const AppRouter = () => (
       <Route path="/api/v1/auth/verify/:token" element={<VerifyEmailPage />} />
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/dashboard" element={<ListPage />} />
+        <Route path="/notes" element={<ListPage />} />
+        <Route path="/favorites" element={<ListPage />} />
+        <Route path="/folders" element={<ListPage />} />
+        <Route path="/tags" element={<ListPage />} />
+        <Route path="/trash" element={<ListPage />} />
         <Route path="/notes/new" element={<FormPage />} />
         <Route path="/notes/:id" element={<DetailPage />} />
         <Route path="/notes/:id/edit" element={<FormPage />} />
