@@ -21,6 +21,7 @@ export const VerifyEmailPage = () => {
   const lastTokenRef = useRef<string | undefined>(undefined);
 
     useEffect(() => {
+        let active = true;
         const performVerification = async () => {
             if (!token) return;
             if (lastTokenRef.current !== token) {
@@ -29,22 +30,30 @@ export const VerifyEmailPage = () => {
                 setStatus('loading');
                 setVerificationCode(token);
             }
-            if (!token || hasCalled.current) return;
+            if (hasCalled.current) return;
             hasCalled.current = true;
 
             try {
                 const res = await verify(token);
+                if (!active || lastTokenRef.current !== token) return;
                 setStatus('success');
-                setMessage((res as unknown as { message?: string }).message || 'Email verified successfully. Redirecting to login...');
+                setMessage(res.message || 'Email verified successfully. Redirecting to login...');
                 uiActions.success('Account verified! Redirecting to login...');
-                setTimeout(() => navigate('/login'), 1500);
+                setTimeout(() => {
+                    if (active) navigate('/login');
+                }, 1500);
             } catch (err: unknown) {
+                if (!active || lastTokenRef.current !== token) return;
                 setStatus('error');
-                setMessage((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Verification link expired or invalid.');
+                setMessage(err instanceof Error ? err.message : 'Verification link expired or invalid.');
             }
         };
 
         performVerification();
+
+        return () => {
+            active = false;
+        };
     }, [token, verify, navigate]);
 
     const handleCodeSubmit = async (e: React.FormEvent) => {
@@ -159,12 +168,13 @@ export const VerifyEmailPage = () => {
                         {status === 'idle' && (
                             <form onSubmit={handleCodeSubmit} className="space-y-5 text-left">
                                 <div className="space-y-2">
-                                    <label className="text-xs font-extrabold text-on-surface uppercase tracking-wider">
+                                    <label htmlFor="verify-code-input" className="text-xs font-extrabold text-on-surface uppercase tracking-wider">
                                         Enter Verification Code / Token
                                     </label>
                                     <div className="relative">
                                         <Mail className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/60" />
                                         <input
+                                            id="verify-code-input"
                                             type="text"
                                             required
                                             value={verificationCode}

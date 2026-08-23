@@ -27,7 +27,10 @@ export const ResetPasswordPage = () => {
     });
 
     const onSubmit = async (data: ResetPasswordData) => {
-        if (!token) return;
+        if (!token) {
+            uiActions.error('Invalid or missing password reset token.');
+            return;
+        }
         try {
             await resetPassword({ token, data });
             navigate('/login');
@@ -48,11 +51,12 @@ export const ResetPasswordPage = () => {
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                     <div className="space-y-5">
                         <div className="space-y-2 text-left">
-                            <label className="text-sm font-bold text-neutral-800 ml-1">New Password</label>
+                            <label htmlFor="new-password-input" className="text-sm font-bold text-neutral-800 ml-1">New Password</label>
                             <div className="relative group">
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-neutral-300 group-focus-within:text-black transition-colors" />
                                 <input
                                     {...register('password')}
+                                    id="new-password-input"
                                     type="password"
                                     placeholder="••••••••"
                                     className="w-full bg-neutral-50 border border-neutral-100 px-12 py-3.5 rounded-2xl text-[14px] font-semibold focus:outline-none focus:border-black focus:ring-0 transition-all shadow-sm"
@@ -62,11 +66,12 @@ export const ResetPasswordPage = () => {
                         </div>
 
                         <div className="space-y-2 text-left">
-                            <label className="text-sm font-bold text-neutral-800 ml-1">Confirm New Password</label>
+                            <label htmlFor="confirm-password-input" className="text-sm font-bold text-neutral-800 ml-1">Confirm New Password</label>
                             <div className="relative group">
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-neutral-300 group-focus-within:text-black transition-colors" />
                                 <input
                                     {...register('confirmPassword')}
+                                    id="confirm-password-input"
                                     type="password"
                                     placeholder="••••••••"
                                     className="w-full bg-neutral-50 border border-neutral-100 px-12 py-3.5 rounded-2xl text-[14px] font-semibold focus:outline-none focus:border-black focus:ring-0 transition-all shadow-sm"

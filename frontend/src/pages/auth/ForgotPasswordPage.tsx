@@ -48,11 +48,12 @@ export const ForgotPasswordPage = () => {
                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
                         <div className="space-y-4 text-left">
                             <div className="space-y-2">
-                                <label className="text-sm font-bold text-neutral-800 ml-1">Email Address</label>
+                                <label htmlFor="forgot-email-input" className="text-sm font-bold text-neutral-800 ml-1">Email Address</label>
                                 <div className="relative group">
                                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-neutral-300 group-focus-within:text-black transition-colors" />
                                     <input
                                         {...register('email')}
+                                        id="forgot-email-input"
                                         type="email"
                                         placeholder="name@example.com"
                                         className="w-full bg-neutral-50 border border-neutral-100 px-12 py-3.5 rounded-2xl text-[14px] font-semibold focus:outline-none focus:border-black focus:ring-0 transition-all shadow-sm"
