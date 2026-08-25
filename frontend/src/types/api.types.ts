@@ -56,3 +56,23 @@ export interface ForgotPasswordRequest {
 export interface ResetPasswordRequest {
   password: string;
 }
+
+export interface CreateNoteRequest {
+  title: string;
+  body: string;
+  tags: ('work' | 'personal' | 'life')[];
+}
+
+export interface UpdateNoteRequest {
+  title?: string;
+  body?: string;
+  tags?: ('work' | 'personal' | 'life')[];
+}
+
+export interface NoteQueryParams {
+  search?: string;
+  tag?: string;
+  page?: number;
+  limit?: number;
+  sort?: string;
+}
