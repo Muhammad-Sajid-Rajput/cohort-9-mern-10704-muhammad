@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, type ReactElement } from 'react';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -17,7 +17,7 @@ const schema = z.object({
 
 type NoteFormData = z.infer<typeof schema>;
 
-export const FormPage = () => {
+export const FormPage = (): ReactElement | null => {
   const { id } = useParams<{ id: string }>();
   const isEdit = !!id;
   const navigate = useNavigate();
@@ -61,13 +61,17 @@ export const FormPage = () => {
     setValue('tags', current, { shouldValidate: true });
   };
 
-  const onSubmit = async (formData: NoteFormData) => {
-    if (isEdit && id) {
-      await update({ id, data: formData });
-      navigate(`/notes/${id}`);
-    } else {
-      await create(formData);
-      navigate('/dashboard');
+  const onSubmit = async (formData: NoteFormData): Promise<void> => {
+    try {
+      if (isEdit && id) {
+        await update({ id, data: formData });
+        navigate(`/notes/${id}`);
+      } else {
+        await create(formData);
+        navigate('/dashboard');
+      }
+    } catch {
+      void 0;
     }
   };
 
@@ -116,11 +120,10 @@ export const FormPage = () => {
                   type="button"
                   key={tag}
                   onClick={() => toggleTag(tag)}
-                  className={`px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider transition-all ${
-                    isSelected
+                  className={`px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider transition-all ${isSelected
                       ? 'bg-black text-white shadow-xs'
                       : 'bg-surface-container text-on-surface-variant border border-outline-variant hover:bg-surface-hover'
-                  }`}
+                    }`}
                 >
                   {tag}
                 </button>

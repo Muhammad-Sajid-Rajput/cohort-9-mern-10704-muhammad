@@ -10,6 +10,9 @@ import type {
   NoteQueryParams,
 } from '../types/api.types';
 
+/**
+ * Notes API client for CRUD operations, batch deletion, and AI chat.
+ */
 export const notesApi = {
   getAll: (params?: NoteQueryParams) =>
     apiClient.get<NoteQueryParams, PaginatedNotesResponse>(API_CONSTANTS.NOTES.BASE, { params }),

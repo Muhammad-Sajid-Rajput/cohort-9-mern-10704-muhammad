@@ -27,9 +27,8 @@ const MenuButton = ({ onClick, isActive, children, title }: MenuButtonProps) => 
     onClick={onClick}
     title={title}
     aria-label={title}
-    className={`p-2 rounded-lg transition-all ${
-      isActive ? 'bg-black text-white shadow-sm' : 'text-on-surface-variant hover:bg-neutral-100 hover:text-black'
-    }`}
+    className={`p-2 rounded-lg transition-all ${isActive ? 'bg-black text-white shadow-sm' : 'text-on-surface-variant hover:bg-neutral-100 hover:text-black'
+      }`}
   >
     {children}
   </button>

@@ -7,9 +7,9 @@ import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { ChevronLeft, Edit3, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { useState } from 'react';
+import { useState, type ReactElement } from 'react';
 
-export const DetailPage = () => {
+export const DetailPage = (): ReactElement | null => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { useGetById, delete: deleteNote } = useNotes();
@@ -20,13 +20,16 @@ export const DetailPage = () => {
   if (isError) return <ErrorView message={error instanceof Error ? error.message : 'Failed to load note'} onRetry={refetch} />;
 
   const note = data?.data;
-
   if (!note) return <ErrorView message="Note not found" onRetry={refetch} />;
 
-  const handleDelete = async () => {
+  const handleDelete = async (): Promise<void> => {
     if (!id) return;
-    await deleteNote(id);
-    navigate('/dashboard');
+    try {
+      await deleteNote(id);
+      navigate('/dashboard');
+    } catch {
+      void 0;
+    }
   };
 
   return (

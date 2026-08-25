@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactElement } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useNotes } from '../../hooks/useNotes';
 import { ErrorView } from '../../components/ui/ErrorView';
@@ -26,7 +26,7 @@ const NoteSkeleton = () => (
   </div>
 );
 
-export const ListPage = () => {
+export const ListPage = (): ReactElement | null => {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -52,7 +52,7 @@ export const ListPage = () => {
 
   const { data, isLoading, isError, error, refetch } = useGetAll();
 
-  const handleExportJSON = async () => {
+  const handleExportJSON = async (): Promise<void> => {
     try {
       const allNotesRes = await notesApi.getAll({ limit: 1000 });
       const notes = allNotesRes.data || [];
@@ -70,7 +70,7 @@ export const ListPage = () => {
     }
   };
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = async (): Promise<void> => {
     try {
       const allNotesRes = await notesApi.getAll({ limit: 1000 });
       const notes = allNotesRes.data || [];
@@ -211,11 +211,10 @@ export const ListPage = () => {
           <button
             type="button"
             onClick={() => { setSelectedTag(undefined); setPage(1); }}
-            className={`px-3 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider transition-all ${
-              selectedTag === undefined
+            className={`px-3 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider transition-all ${selectedTag === undefined
                 ? 'bg-black text-white shadow-xs'
                 : 'bg-surface-container text-on-surface-variant border border-outline-variant hover:bg-surface-hover'
-            }`}
+              }`}
           >
             All Tags
           </button>
@@ -224,11 +223,10 @@ export const ListPage = () => {
               type="button"
               key={tag}
               onClick={() => { setSelectedTag(tag); setPage(1); }}
-              className={`px-3 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider transition-all ${
-                selectedTag === tag
+              className={`px-3 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider transition-all ${selectedTag === tag
                   ? 'bg-black text-white shadow-xs'
                   : 'bg-surface-container text-on-surface-variant border border-outline-variant hover:bg-surface-hover'
-              }`}
+                }`}
             >
               {tag}
             </button>
@@ -390,8 +388,12 @@ export const ListPage = () => {
             <Button
               variant="danger"
               onClick={async () => {
-                await deleteAll();
-                setClearAllModalOpen(false);
+                try {
+                  await deleteAll();
+                  setClearAllModalOpen(false);
+                } catch {
+                  void 0;
+                }
               }}
             >
               Confirm Clear All

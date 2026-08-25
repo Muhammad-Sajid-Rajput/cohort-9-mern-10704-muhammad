@@ -1,21 +1,24 @@
-import { uiActions } from '../../utils/uiActions';
+import { useState, type ReactElement } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { User, Mail, ShieldCheck } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { useState } from 'react';
 import { Modal } from '../../components/ui/Modal';
 
-export const SettingsPage = () => {
+export const SettingsPage = (): ReactElement | null => {
   const { user, deleteUser } = useAuth();
   const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   if (!user) return null;
 
-  const handleDeleteAccount = async () => {
+  const handleDeleteAccount = async (): Promise<void> => {
+    setIsDeleting(true);
     try {
       await deleteUser();
-    } catch (error) {
-      uiActions.error(error instanceof Error ? error.message : 'Failed to delete account.');
+    } catch {
+      void 0;
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -84,10 +87,19 @@ export const SettingsPage = () => {
             This action cannot be undone. All your notes, personal tags, and embeddings will be permanently erased.
           </p>
           <div className="flex items-center justify-end gap-3">
-            <Button variant="secondary" onClick={() => setDeleteModalOpen(false)}>
+            <Button
+              variant="secondary"
+              disabled={isDeleting}
+              onClick={() => setDeleteModalOpen(false)}
+            >
               Cancel
             </Button>
-            <Button variant="danger" onClick={handleDeleteAccount}>
+            <Button
+              variant="danger"
+              isLoading={isDeleting}
+              disabled={isDeleting}
+              onClick={handleDeleteAccount}
+            >
               Confirm Delete
             </Button>
           </div>
