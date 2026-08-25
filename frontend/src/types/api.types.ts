@@ -36,3 +36,23 @@ export interface PaginatedNotesResponse extends ApiResponse<Note[]> {
 export type SingleNoteResponse = ApiResponse<Note>;
 
 export type ChatResponse = ApiResponse<{ reply: string }>;
+
+
+export interface SignupRequest {
+  username: string;
+  email: string;
+  password: string;
+}
+
+export interface SigninRequest {
+  email: string;
+  password: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  password: string;
+}

@@ -1,0 +1,1 @@
+export const FormPage = () => <div className="p-6 font-bold">Note Form</div>;

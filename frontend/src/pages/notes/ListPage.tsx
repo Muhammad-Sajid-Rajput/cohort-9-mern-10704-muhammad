@@ -1,0 +1,1 @@
+export const ListPage = () => <div className="p-6 font-bold">Notes List</div>;
