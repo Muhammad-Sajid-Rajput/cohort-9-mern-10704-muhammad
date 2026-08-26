@@ -97,7 +97,9 @@ export const SettingsPage = (): ReactElement | null => {
 
       <Modal
         isOpen={isDeleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
+        onClose={() => {
+          if (!isDeleting) setDeleteModalOpen(false);
+        }}
         title="Permanently delete account?"
       >
         <div className="space-y-6">
