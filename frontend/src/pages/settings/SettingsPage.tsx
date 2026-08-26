@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { User, Mail, ShieldCheck } from 'lucide-react';
+import { User, Mail, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 
@@ -55,12 +56,29 @@ export const SettingsPage = (): ReactElement | null => {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 p-4 rounded-2xl bg-green-50 border border-green-200 text-green-900">
-          <ShieldCheck className="w-5 h-5 text-green-600 shrink-0" />
-          <p className="text-xs font-bold">
-            Email Verified — Your account has full access to workspace and AI features.
-          </p>
-        </div>
+        {user.isEmailVerified ? (
+          <div className="flex items-center gap-3 p-4 rounded-2xl bg-green-50 border border-green-200 text-green-900">
+            <ShieldCheck className="w-5 h-5 text-green-600 shrink-0" />
+            <p className="text-xs font-bold">
+              Email Verified — Your account has full access to workspace and AI features.
+            </p>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900">
+            <div className="flex items-center gap-3">
+              <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
+              <p className="text-xs font-bold">
+                Email Unverified — Please verify your email to unlock all features.
+              </p>
+            </div>
+            <Link
+              to="/verify-email"
+              className="px-3 py-1.5 rounded-xl bg-amber-600 text-white font-bold text-xs hover:bg-amber-700 transition-colors shrink-0"
+            >
+              Verify Now
+            </Link>
+          </div>
+        )}
       </div>
 
       <div className="bg-surface rounded-3xl p-8 border border-red-200 shadow-xs space-y-4">
