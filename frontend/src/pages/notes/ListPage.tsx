@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { useState, useEffect, type ReactElement } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useNotes } from '../../hooks/useNotes';
@@ -11,6 +12,21 @@ import { notesApi } from '../../api/notes.api';
 import { uiActions } from '../../utils/uiActions';
 import { format } from 'date-fns';
 import type { Note } from '../../types/api.types';
+
+const importedNoteSchema = z.object({
+  title: z.string().min(1),
+  content: z.string().optional(),
+  body: z.string().optional(),
+  tags: z.array(z.enum(['work', 'personal', 'life'])).optional(),
+}).refine((n) => Boolean(n.content || n.body), {
+  message: 'Each note requires title and content or body text.',
+});
+
+const importSchema = z.union([
+  z.array(importedNoteSchema),
+  z.object({ notes: z.array(importedNoteSchema) }),
+  z.object({ data: z.array(importedNoteSchema) }),
+]);
 
 const NoteSkeleton = () => (
   <div className="aspect-square rounded-3xl p-8 border border-outline-variant bg-surface space-y-6">
@@ -121,14 +137,25 @@ export const ListPage = (): ReactElement | null => {
       fileReader.onload = async (event) => {
         try {
           const parsed = JSON.parse(event.target?.result as string);
-          const notesArray: Note[] = Array.isArray(parsed) ? parsed : parsed.notes ?? parsed.data ?? [];
-          if (!notesArray.length) {
+          const parseResult = importSchema.safeParse(parsed);
+          if (!parseResult.success) {
+            uiActions.error('Invalid JSON structure: Each note must have a title and body.');
+            return;
+          }
+
+          const rawNotes = Array.isArray(parseResult.data)
+            ? parseResult.data
+            : 'notes' in parseResult.data
+              ? parseResult.data.notes
+              : parseResult.data.data;
+
+          if (!rawNotes.length) {
             uiActions.error('No notes found in imported file.');
             return;
           }
 
           let successCount = 0;
-          for (const note of notesArray) {
+          for (const note of rawNotes) {
             const bodyContent = note.content || note.body;
             if (note.title && bodyContent) {
               await notesApi.create({
@@ -260,8 +287,8 @@ export const ListPage = (): ReactElement | null => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {notes.map((note) => (
             <div key={note._id} className="group block relative h-full">
-              <div
-                onClick={() => navigate(`/notes/${note._id}`)}
+              <Link
+                to={`/notes/${note._id}`}
                 className="h-64 rounded-3xl p-7 bg-white border border-outline-variant flex flex-col justify-between transition-all duration-300 group-hover:-translate-y-1.5 group-hover:shadow-xl group-hover:border-primary/50 relative overflow-hidden cursor-pointer"
               >
                 <div className="absolute top-0 left-0 right-0 h-1 bg-primary/20 group-hover:bg-primary transition-colors" />
@@ -296,7 +323,7 @@ export const ListPage = (): ReactElement | null => {
                     Updated {format(new Date(note.updatedAt), 'p')}
                   </span>
                 </div>
-              </div>
+              </Link>
 
               <div className="absolute bottom-6 right-6 flex gap-2.5">
                 <button
@@ -395,8 +422,8 @@ export const ListPage = (): ReactElement | null => {
                 try {
                   await deleteAll();
                   setClearAllModalOpen(false);
-                } catch (error) {
-                  uiActions.error(error);
+                } catch {
+                  return;
                 }
               }}
             >

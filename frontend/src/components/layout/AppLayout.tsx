@@ -26,6 +26,14 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
 
+  const handleLogout = async (): Promise<void> => {
+    try {
+      await logout();
+    } catch {
+      return;
+    }
+  };
+
   const sidebarRef = useRef<HTMLElement>(null);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const wasMobileMenuOpenRef = useRef(false);
@@ -223,7 +231,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
               <button
                 type="button"
                 aria-label="logout"
-                onClick={() => logout()}
+                onClick={handleLogout}
                 className="p-2 text-on-surface-variant hover:text-red-500 transition-colors rounded-lg hover:bg-surface-hover"
               >
                 <LogOut className="h-4 w-4" />

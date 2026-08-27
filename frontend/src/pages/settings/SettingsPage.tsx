@@ -1,4 +1,3 @@
-import { uiActions } from '../../utils/uiActions';
 import { useState, type ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -18,9 +17,8 @@ export const SettingsPage = (): ReactElement | null => {
     setIsDeleting(true);
     try {
       await deleteUser();
-    } catch (error) {
-      uiActions.error(error);
-    } finally {
+      setDeleteModalOpen(false);
+    } catch {
       setIsDeleting(false);
     }
   };

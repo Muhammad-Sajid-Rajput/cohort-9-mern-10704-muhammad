@@ -1,4 +1,3 @@
-import { uiActions } from '../../utils/uiActions';
 import type { Note } from '../../types/api.types';
 import { useEffect, type ReactElement } from 'react';
 import { useForm, Controller, useWatch } from 'react-hook-form';
@@ -71,8 +70,8 @@ export const FormPage = (): ReactElement | null => {
         await create(formData);
         navigate('/notes');
       }
-    } catch (error) {
-      uiActions.error(error);
+    } catch {
+      return;
     }
   };
 

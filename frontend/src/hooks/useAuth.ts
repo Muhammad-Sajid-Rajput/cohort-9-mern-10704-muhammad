@@ -39,17 +39,14 @@ export const useAuth = () => {
   const handleAuthSuccess = async (res: AuthResponse, fallbackMessage: string): Promise<void> => {
     let user = res.user ?? res.data?.user;
     if (!user) {
-      try {
-        const meRes = await authApi.me();
-        user = meRes.user ?? meRes.data?.user;
-      } catch (error) {
-        uiActions.error(error);
-      }
+      const meRes = await authApi.me();
+      user = meRes.user ?? meRes.data?.user;
     }
-    if (user) {
-      setAuth(user);
-      queryClient.setQueryData(['auth', 'me'], user);
+    if (!user) {
+      throw new Error('Authentication succeeded without user data.');
     }
+    setAuth(user);
+    queryClient.setQueryData(['auth', 'me'], user);
     setInitialized(true);
     uiActions.success(res.message || fallbackMessage);
   };
@@ -80,9 +77,13 @@ export const useAuth = () => {
 
   const logoutMutation = useMutation({
     mutationFn: () => authApi.logout(),
-    onSettled: () => {
+    onSuccess: () => {
       uiActions.success('Logged out successfully.');
       clearSession();
+    },
+    onError: (error) => {
+      clearSession();
+      uiActions.error(error);
     },
   });
 

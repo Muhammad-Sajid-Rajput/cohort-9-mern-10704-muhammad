@@ -1,4 +1,3 @@
-import { uiActions } from '../../utils/uiActions';
 import type { Note } from '../../types/api.types';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useNotes } from '../../hooks/useNotes';
@@ -29,8 +28,8 @@ export const DetailPage = (): ReactElement | null => {
     try {
       await deleteNote(id);
       navigate('/notes');
-    } catch (error) {
-      uiActions.error(error);
+    } catch {
+      return;
     }
   };
 
