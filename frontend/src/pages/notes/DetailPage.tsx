@@ -1,3 +1,5 @@
+import { uiActions } from '../../utils/uiActions';
+import type { Note } from '../../types/api.types';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useNotes } from '../../hooks/useNotes';
 import { Spinner } from '../../components/ui/Spinner';
@@ -19,24 +21,24 @@ export const DetailPage = (): ReactElement | null => {
   if (isLoading) return <Spinner />;
   if (isError) return <ErrorView message={error instanceof Error ? error.message : 'Failed to load note'} onRetry={refetch} />;
 
-  const note = data?.data;
+  const note: Note | undefined = data?.note ?? data?.data;
   if (!note) return <ErrorView message="Note not found" onRetry={refetch} />;
 
   const handleDelete = async (): Promise<void> => {
     if (!id) return;
     try {
       await deleteNote(id);
-      navigate('/dashboard');
-    } catch {
-      void 0;
+      navigate('/notes');
+    } catch (error) {
+      uiActions.error(error);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">
+    <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500 text-left">
       <div className="flex items-center justify-between border-b border-outline-variant pb-6">
         <Link
-          to="/dashboard"
+          to="/notes"
           className="inline-flex items-center gap-2 text-on-surface-variant hover:text-on-surface font-extrabold text-sm transition-colors group"
         >
           <ChevronLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
@@ -80,8 +82,35 @@ export const DetailPage = (): ReactElement | null => {
         </h1>
       </div>
 
-      <div className="bg-surface rounded-3xl p-8 border border-outline-variant shadow-xs">
-        <RichTextDisplay body={note.body} />
+      <div className="bg-white rounded-[40px] border border-outline-variant shadow-[0_30px_60px_rgba(0,0,0,0.04)] overflow-hidden">
+        <div className="px-10 pt-16 pb-16 space-y-10">
+          <div className="space-y-4">
+            <h1 className="text-3xl font-extrabold tracking-tight text-on-surface leading-tight">{note.title}</h1>
+            <div className="flex flex-wrap items-center gap-6 text-on-surface-variant font-bold text-xs uppercase tracking-widest pt-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-neutral-200" />
+                {format(new Date(note.createdAt || note.updatedAt), 'MMMM d, yyyy')}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-neutral-200" />
+                Last edited {format(new Date(note.updatedAt), 'p')}
+              </div>
+              <div className="flex gap-2">
+                {note.tags?.map((tag) => (
+                  <span key={tag} className="px-2 py-0.5 rounded-lg border border-outline-variant text-[10px] font-bold text-black bg-neutral-50">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="w-full h-px bg-outline-variant" />
+
+          <div className="min-h-125">
+            <RichTextDisplay body={note.content || note.body || ''} />
+          </div>
+        </div>
       </div>
 
       <Modal

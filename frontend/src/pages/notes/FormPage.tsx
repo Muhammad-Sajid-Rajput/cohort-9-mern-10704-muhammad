@@ -1,3 +1,5 @@
+import { uiActions } from '../../utils/uiActions';
+import type { Note } from '../../types/api.types';
 import { useEffect, type ReactElement } from 'react';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -7,7 +9,6 @@ import { useNotes } from '../../hooks/useNotes';
 import { Button } from '../../components/ui/Button';
 import { RichTextEditor } from '../../components/editor/RichTextEditor';
 import { Spinner } from '../../components/ui/Spinner';
-import { ArrowLeft } from 'lucide-react';
 
 const schema = z.object({
   title: z.string().min(3, 'Title is too short').max(255),
@@ -42,10 +43,10 @@ export const FormPage = (): ReactElement | null => {
   const selectedTags = useWatch({ control, name: 'tags' }) || ['work'];
 
   useEffect(() => {
-    if (isEdit && rawNoteData?.data) {
-      const note = rawNoteData.data;
+    const note: Note | undefined = rawNoteData?.note ?? rawNoteData?.data;
+    if (isEdit && note) {
       setValue('title', note.title);
-      setValue('body', note.body);
+      setValue('body', note.content || note.body || '');
       setValue('tags', note.tags || ['work']);
     }
   }, [isEdit, rawNoteData, setValue]);
@@ -68,10 +69,10 @@ export const FormPage = (): ReactElement | null => {
         navigate(`/notes/${id}`);
       } else {
         await create(formData);
-        navigate('/dashboard');
+        navigate('/notes');
       }
-    } catch {
-      void 0;
+    } catch (error) {
+      uiActions.error(error);
     }
   };
 
@@ -79,21 +80,31 @@ export const FormPage = (): ReactElement | null => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">
-      <div className="flex items-center justify-between border-b border-outline-variant pb-6">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-2 text-on-surface-variant hover:text-on-surface font-extrabold text-sm transition-colors group"
-        >
-          <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-          Cancel & Return
-        </button>
-        <h1 className="text-xl font-extrabold text-on-surface">
-          {isEdit ? 'Edit Note' : 'Create New Note'}
-        </h1>
-      </div>
-
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <div className="flex items-center justify-between border-b border-outline-variant pb-6">
+          <div>
+            <h1 className="text-xl font-extrabold text-on-surface">
+              {isEdit ? 'Edit Note' : 'Create New Note'}
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => navigate(-1)}
+            >
+              Discard
+            </Button>
+            <Button
+              type="submit"
+              isLoading={isSubmitting}
+              style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-on-semantic)' }}
+            >
+              {isEdit ? 'Save Changes' : 'Create Note'}
+            </Button>
+          </div>
+        </div>
         <div className="space-y-2">
           <label htmlFor="note-title" className="text-xs font-extrabold uppercase tracking-wider text-on-surface-variant">
             Note Title
@@ -121,8 +132,8 @@ export const FormPage = (): ReactElement | null => {
                   key={tag}
                   onClick={() => toggleTag(tag)}
                   className={`px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider transition-all ${isSelected
-                      ? 'bg-black text-white shadow-xs'
-                      : 'bg-surface-container text-on-surface-variant border border-outline-variant hover:bg-surface-hover'
+                    ? 'bg-black text-white shadow-xs'
+                    : 'bg-surface-container text-on-surface-variant border border-outline-variant hover:bg-surface-hover'
                     }`}
                 >
                   {tag}
@@ -151,23 +162,6 @@ export const FormPage = (): ReactElement | null => {
           {errors.body && <p className="text-xs font-bold text-red-500">{errors.body.message}</p>}
         </div>
 
-        <div className="flex items-center justify-end gap-4 pt-4 border-t border-outline-variant">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => navigate(-1)}
-          >
-            Discard
-          </Button>
-          <Button
-            type="submit"
-            isLoading={isSubmitting}
-            className="px-8"
-            style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-on-semantic)' }}
-          >
-            {isEdit ? 'Save Changes' : 'Publish Note'}
-          </Button>
-        </div>
       </form>
     </div>
   );

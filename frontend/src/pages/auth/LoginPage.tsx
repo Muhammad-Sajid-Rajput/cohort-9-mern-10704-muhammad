@@ -19,7 +19,7 @@ export const LoginPage = () => {
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const navigate = useNavigate();
     const location = useLocation();
-    const from = location.state?.from?.pathname || '/dashboard';
+    const from = location.state?.from?.pathname || '/notes';
 
     const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormData>({
         resolver: zodResolver(schema),

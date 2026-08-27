@@ -55,7 +55,7 @@ export const ListPage = (): ReactElement | null => {
   const handleExportJSON = async (): Promise<void> => {
     try {
       const allNotesRes = await notesApi.getAll({ limit: 1000 });
-      const notes = allNotesRes.data || [];
+      const notes: Note[] = allNotesRes.notes ?? allNotesRes.data ?? [];
       const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(notes, null, 2));
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute('href', dataStr);
@@ -73,7 +73,7 @@ export const ListPage = (): ReactElement | null => {
   const handleExportPDF = async (): Promise<void> => {
     try {
       const allNotesRes = await notesApi.getAll({ limit: 1000 });
-      const notes = allNotesRes.data || [];
+      const notes: Note[] = allNotesRes.notes ?? allNotesRes.data ?? [];
       const doc = new jsPDF();
 
       doc.setFontSize(22);
@@ -99,7 +99,7 @@ export const ListPage = (): ReactElement | null => {
         doc.text(`Tags: ${note.tags.join(', ')} | Updated: ${format(new Date(note.updatedAt), 'MMM dd, yyyy')}`, 14, yOffset);
         yOffset += 6;
 
-        const cleanBody = note.body.replace(/<[^>]*>?/gm, '');
+        const cleanBody = (note.content || note.body || '').replace(/<[^>]*>?/gm, '');
         const splitText = doc.splitTextToSize(cleanBody, 180);
         doc.setFontSize(10);
         doc.text(splitText, 14, yOffset);
@@ -121,7 +121,7 @@ export const ListPage = (): ReactElement | null => {
       fileReader.onload = async (event) => {
         try {
           const parsed = JSON.parse(event.target?.result as string);
-          const notesArray: Note[] = Array.isArray(parsed) ? parsed : parsed.data || [];
+          const notesArray: Note[] = Array.isArray(parsed) ? parsed : parsed.notes ?? parsed.data ?? [];
           if (!notesArray.length) {
             uiActions.error('No notes found in imported file.');
             return;
@@ -129,10 +129,11 @@ export const ListPage = (): ReactElement | null => {
 
           let successCount = 0;
           for (const note of notesArray) {
-            if (note.title && note.body) {
+            const bodyContent = note.content || note.body;
+            if (note.title && bodyContent) {
               await notesApi.create({
                 title: note.title,
-                body: note.body,
+                body: bodyContent,
                 tags: note.tags || ['work'],
               });
               successCount++;
@@ -149,7 +150,7 @@ export const ListPage = (): ReactElement | null => {
 
   if (isError) return <ErrorView message={error instanceof Error ? error.message : 'Error fetching workspace'} onRetry={refetch} />;
 
-  const notes = data?.data || [];
+  const notes: Note[] = data?.notes ?? data?.data ?? [];
   const pagination = data?.pagination || { total: 0, totalPages: 1 };
 
   return (
@@ -165,7 +166,7 @@ export const ListPage = (): ReactElement | null => {
           <label className="cursor-pointer">
             <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" />
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-surface-container border border-outline-variant hover:bg-surface-hover transition-colors text-on-surface">
-              <Upload className="w-3.5 h-3.5" /> Import JSON
+              <Upload className="w-3.5 h-3.5" /> Import
             </span>
           </label>
           <Button
@@ -184,14 +185,7 @@ export const ListPage = (): ReactElement | null => {
               <Trash2 className="w-3.5 h-3.5" /> Clear All
             </Button>
           )}
-          <Link to="/notes/new">
-            <Button
-              className="flex items-center gap-2 text-xs font-extrabold"
-              style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-on-semantic)' }}
-            >
-              <Plus className="w-4 h-4" /> New Note
-            </Button>
-          </Link>
+
         </div>
       </div>
 
@@ -212,8 +206,8 @@ export const ListPage = (): ReactElement | null => {
             type="button"
             onClick={() => { setSelectedTag(undefined); setPage(1); }}
             className={`px-3 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider transition-all ${selectedTag === undefined
-                ? 'bg-black text-white shadow-xs'
-                : 'bg-surface-container text-on-surface-variant border border-outline-variant hover:bg-surface-hover'
+              ? 'bg-black text-white shadow-xs'
+              : 'bg-surface-container text-on-surface-variant border border-outline-variant hover:bg-surface-hover'
               }`}
           >
             All Tags
@@ -224,8 +218,8 @@ export const ListPage = (): ReactElement | null => {
               key={tag}
               onClick={() => { setSelectedTag(tag); setPage(1); }}
               className={`px-3 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider transition-all ${selectedTag === tag
-                  ? 'bg-black text-white shadow-xs'
-                  : 'bg-surface-container text-on-surface-variant border border-outline-variant hover:bg-surface-hover'
+                ? 'bg-black text-white shadow-xs'
+                : 'bg-surface-container text-on-surface-variant border border-outline-variant hover:bg-surface-hover'
                 }`}
             >
               {tag}
@@ -265,36 +259,46 @@ export const ListPage = (): ReactElement | null => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {notes.map((note) => (
-            <div
-              key={note._id}
-              onClick={() => navigate(`/notes/${note._id}`)}
-              className="group cursor-pointer bg-surface rounded-3xl p-6 border border-outline-variant hover:border-primary/40 hover:shadow-md transition-all flex flex-col justify-between space-y-4 text-left"
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-wrap gap-1.5">
-                    {note.tags?.map((t) => (
-                      <span
-                        key={t}
-                        className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 bg-surface-container rounded-md text-on-surface"
-                      >
-                        {t}
-                      </span>
-                    ))}
+            <div key={note._id} className="group block relative h-full">
+              <div
+                onClick={() => navigate(`/notes/${note._id}`)}
+                className="h-64 rounded-3xl p-7 bg-white border border-outline-variant flex flex-col justify-between transition-all duration-300 group-hover:-translate-y-1.5 group-hover:shadow-xl group-hover:border-primary/50 relative overflow-hidden cursor-pointer"
+              >
+                <div className="absolute top-0 left-0 right-0 h-1 bg-primary/20 group-hover:bg-primary transition-colors" />
+
+                <div className="space-y-3 pt-1 text-left">
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap gap-1.5">
+                      {note.tags?.map((t) => (
+                        <span
+                          key={t}
+                          className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 bg-neutral-50 rounded-lg border border-outline-variant text-black"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                    <span className="text-[11px] font-bold text-on-surface-variant/70 uppercase tracking-wider">
+                      {format(new Date(note.createdAt || note.updatedAt), 'MMM d, yyyy')}
+                    </span>
                   </div>
-                  <span className="text-[11px] font-medium text-on-surface-variant">
-                    {format(new Date(note.updatedAt), 'MMM dd')}
+
+                  <h3 className="text-xl font-extrabold text-on-surface group-hover:text-primary transition-colors leading-snug tracking-tight line-clamp-2">
+                    {note.title}
+                  </h3>
+                  <p className="text-sm font-medium text-on-surface-variant line-clamp-3 leading-relaxed">
+                    {(note.content || note.body || '').replace(/<[^>]*>?/gm, '')}
+                  </p>
+                </div>
+
+                <div className="mt-auto pt-4 flex items-center justify-between border-t border-outline-variant/50">
+                  <span className="text-[11px] font-bold text-on-surface-variant/60">
+                    Updated {format(new Date(note.updatedAt), 'p')}
                   </span>
                 </div>
-                <h3 className="text-lg font-bold text-on-surface group-hover:text-primary transition-colors line-clamp-1">
-                  {note.title}
-                </h3>
-                <p className="text-xs text-on-surface-variant leading-relaxed line-clamp-3">
-                  {note.body.replace(/<[^>]*>?/gm, '')}
-                </p>
               </div>
 
-              <div className="pt-3 border-t border-outline-variant flex items-center justify-end gap-2">
+              <div className="absolute bottom-6 right-6 flex gap-2.5">
                 <button
                   type="button"
                   aria-label="Edit note"
@@ -302,7 +306,7 @@ export const ListPage = (): ReactElement | null => {
                     e.stopPropagation();
                     navigate(`/notes/${note._id}/edit`);
                   }}
-                  className="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-hover hover:text-on-surface transition-colors"
+                  className="w-10 h-10 bg-primary text-on-primary rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-md hover:bg-primary-hover hover:scale-105 z-10 active:scale-95"
                 >
                   <Edit3 className="w-4 h-4" />
                 </button>
@@ -391,8 +395,8 @@ export const ListPage = (): ReactElement | null => {
                 try {
                   await deleteAll();
                   setClearAllModalOpen(false);
-                } catch {
-                  void 0;
+                } catch (error) {
+                  uiActions.error(error);
                 }
               }}
             >

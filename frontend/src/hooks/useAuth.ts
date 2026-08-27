@@ -4,7 +4,6 @@ import { authApi } from '../api/auth.api';
 import { useAuthStore } from '../store/auth.store';
 import { uiActions } from '../utils/uiActions';
 import type {
-  User,
   AuthResponse,
   SignupRequest,
   SigninRequest,
@@ -21,8 +20,8 @@ export const useAuth = () => {
     queryFn: async () => {
       try {
         const res = await authApi.me();
-        const user = res.data?.user;
-        if (user) setAuth(user as User);
+        const user = res.user ?? res.data?.user;
+        if (user) setAuth(user);
         return user;
       } catch (error) {
         if (axios.isAxiosError(error) && error.response?.status === 401) {
@@ -37,19 +36,30 @@ export const useAuth = () => {
     enabled: !isInitialized,
   });
 
-  const handleAuthSuccess = (res: AuthResponse, fallbackMessage: string) => {
-    const user = res.data?.user;
-    if (user) {
-      setAuth(user as User);
-      queryClient.setQueryData(['auth', 'me'], user);
-      setInitialized(true);
+  const handleAuthSuccess = async (res: AuthResponse, fallbackMessage: string): Promise<void> => {
+    let user = res.user ?? res.data?.user;
+    if (!user) {
+      try {
+        const meRes = await authApi.me();
+        user = meRes.user ?? meRes.data?.user;
+      } catch (error) {
+        uiActions.error(error);
+      }
     }
+    if (user) {
+      setAuth(user);
+      queryClient.setQueryData(['auth', 'me'], user);
+    }
+    setInitialized(true);
     uiActions.success(res.message || fallbackMessage);
   };
 
   const signinMutation = useMutation({
-    mutationFn: (data: SigninRequest) => authApi.signin(data),
-    onSuccess: (res) => handleAuthSuccess(res, 'Successfully logged in.'),
+    mutationFn: async (data: SigninRequest) => {
+      const res = await authApi.signin(data);
+      await handleAuthSuccess(res, 'Successfully logged in.');
+      return res;
+    },
     onError: uiActions.error,
   });
 

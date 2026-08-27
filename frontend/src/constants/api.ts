@@ -9,7 +9,7 @@ export const API_CONSTANTS = {
 		FORGOT_PASSWORD: '/auth/forgotPassword',
 		RESET_PASSWORD: (token: string) => `/auth/resetPassword/${token}`,
 		ME: '/auth/me',
-		DELETE_USER: '/auth/deleteuser',
+		DELETE_USER: '/auth/deleteUser',
 	},
 	NOTES: {
 		BASE: '/notes',

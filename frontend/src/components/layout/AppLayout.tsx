@@ -1,15 +1,14 @@
+import { useAuth } from '../../hooks/useAuth';
+import { ChatBot } from '../chat/ChatBot';
 import React, { useState, useEffect, useRef, useId } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import {
   FileText,
   Folder,
-  Tag,
-  Star,
   Trash2,
   Settings,
   LogOut,
   Plus,
-  Search,
   BookOpen,
   Menu,
   X,
@@ -22,8 +21,8 @@ interface AppLayoutProps {
 
 export const AppLayout = ({ children }: AppLayoutProps) => {
   const location = useLocation();
+  const { user, logout } = useAuth();
   const drawerId = useId();
-  const [searchQuery, setSearchQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
 
@@ -33,9 +32,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
 
   const navigation = [
     { name: 'All Notes', href: '/notes', icon: FileText },
-    { name: 'Favorites', href: '/favorites', icon: Star },
     { name: 'Folders', href: '/folders', icon: Folder },
-    { name: 'Tags', href: '/tags', icon: Tag },
     { name: 'Trash', href: '/trash', icon: Trash2 },
   ];
 
@@ -199,39 +196,45 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
           </nav>
         </div>
 
-        <div className="pt-4 border-t border-outline-variant space-y-1">
+        <div className="pt-4 border-t border-outline-variant space-y-2">
           <Link
             to="/settings"
             onClick={() => setIsMobileMenuOpen(false)}
-            className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-on-surface-variant hover:bg-surface-hover hover:text-on-surface transition-all"
+            className={`flex items-center gap-3.5 py-2.5 px-4 rounded-xl font-semibold transition-all ${
+              location.pathname === '/settings'
+                ? 'bg-primary-tint text-primary font-bold border border-primary/20 shadow-xs'
+                : 'text-on-surface-variant hover:text-primary hover:bg-surface-hover'
+            }`}
           >
-            <div className="flex items-center gap-3">
-              <Settings className="h-4 w-4 text-on-surface-variant" />
-              <span>Settings</span>
-            </div>
+            <Settings className="h-4.5 w-4.5" />
+            <span className="text-[14px]">Settings</span>
           </Link>
 
-          <div className="flex items-center justify-between px-3 py-2 mt-2">
-            <div className="flex items-center gap-2 overflow-hidden">
-              <div className="h-7 w-7 rounded-full bg-primary-tint text-primary flex items-center justify-center font-bold text-xs">
-                U
+          <div className="px-2 py-3 border-t border-outline-variant pt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 overflow-hidden">
+                <div className="w-8 h-8 rounded-full bg-primary shrink-0 flex items-center justify-center text-white font-bold text-xs shadow-xs">
+                  {user?.username?.[0]?.toUpperCase() || 'U'}
+                </div>
+                <div className="truncate text-[13px] font-bold text-on-surface">
+                  {user?.username || 'User'}
+                </div>
               </div>
-              <span className="text-xs font-semibold text-on-surface truncate">User Account</span>
+              <button
+                type="button"
+                aria-label="logout"
+                onClick={() => logout()}
+                className="p-2 text-on-surface-variant hover:text-red-500 transition-colors rounded-lg hover:bg-surface-hover"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
             </div>
-            <button
-              type="button"
-              aria-label="logout"
-              onClick={() => window.dispatchEvent(new CustomEvent('auth:logout'))}
-              className="p-2 text-on-surface-variant hover:text-error transition-colors rounded-lg hover:bg-surface-hover"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
           </div>
         </div>
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 bg-background">
-        <header className="h-16 border-b border-outline-variant bg-surface px-4 sm:px-6 flex items-center justify-between gap-3">
+        <header className="h-14 border-b border-outline-variant bg-surface px-4 flex items-center md:hidden">
           <button
             ref={menuTriggerRef}
             type="button"
@@ -239,26 +242,16 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
             aria-expanded={isMobileMenuOpen}
             aria-controls={drawerId}
             onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-            className="p-2 -ml-2 text-on-surface-variant hover:text-on-surface md:hidden rounded-lg hover:bg-surface-hover"
+            className="p-2 -ml-2 text-on-surface-variant hover:text-on-surface rounded-lg hover:bg-surface-hover"
           >
             <Menu className="h-5 w-5" />
           </button>
-
-          <div className="relative flex-1 max-w-xs sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-on-surface-variant/60" />
-            <input
-              type="text"
-              aria-label="Search notes"
-              placeholder="Search notes..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 bg-surface-container-low border border-outline-variant rounded-xl text-xs text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
-            />
-          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">{children ?? <Outlet />}</div>
       </main>
+
+      <ChatBot />
     </div>
   );
 };
