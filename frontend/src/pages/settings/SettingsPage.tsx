@@ -13,6 +13,16 @@ export const SettingsPage = (): ReactElement | null => {
 
   if (!user) return null;
 
+  const getFormattedJoinedDate = (): string => {
+    if ('createdAt' in user && typeof user.createdAt === 'string' && user.createdAt) {
+      const date = new Date(user.createdAt);
+      if (!isNaN(date.getTime())) {
+        return format(date, 'MMMM d, yyyy');
+      }
+    }
+    return 'Recently';
+  };
+
   const handleDeleteAccount = async (): Promise<void> => {
     setIsDeleting(true);
     try {
@@ -31,12 +41,9 @@ export const SettingsPage = (): ReactElement | null => {
 
       <div className="bg-white rounded-3xl sm:rounded-4xl border border-neutral-100 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.05)] overflow-hidden">
         <div className="flex border-b border-neutral-100 px-8 sm:px-10">
-          <button
-            type="button"
-            className="py-5 text-sm font-bold text-primary border-b-2 border-primary tracking-tight"
-          >
+          <h2 className="py-5 text-sm font-bold text-primary border-b-2 border-primary tracking-tight select-none">
             Account Information
-          </button>
+          </h2>
         </div>
 
         <div className="p-8 sm:p-10 space-y-10">
@@ -108,9 +115,7 @@ export const SettingsPage = (): ReactElement | null => {
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Joined On</p>
                     <p className="text-[15px] font-bold text-neutral-900">
-                      {'createdAt' in user && typeof user.createdAt === 'string'
-                        ? format(new Date(user.createdAt), 'MMMM d, yyyy')
-                        : 'Recently'}
+                      {getFormattedJoinedDate()}
                     </p>
                   </div>
                 </div>

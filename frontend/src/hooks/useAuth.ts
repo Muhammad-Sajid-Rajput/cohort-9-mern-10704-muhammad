@@ -39,8 +39,12 @@ export const useAuth = () => {
   const handleAuthSuccess = async (res: AuthResponse, fallbackMessage: string): Promise<void> => {
     let user = res.user ?? res.data?.user;
     if (!user) {
-      const meRes = await authApi.me();
-      user = meRes.user ?? meRes.data?.user;
+      try {
+        const meRes = await authApi.me();
+        user = meRes.user ?? meRes.data?.user;
+      } catch (error) {
+        throw error instanceof Error ? error : new Error('Failed to fetch user session.');
+      }
     }
     if (!user) {
       throw new Error('Authentication succeeded without user data.');
@@ -53,9 +57,13 @@ export const useAuth = () => {
 
   const signinMutation = useMutation({
     mutationFn: async (data: SigninRequest) => {
-      const res = await authApi.signin(data);
-      await handleAuthSuccess(res, 'Successfully logged in.');
-      return res;
+      try {
+        const res = await authApi.signin(data);
+        await handleAuthSuccess(res, 'Successfully logged in.');
+        return res;
+      } catch (error) {
+        throw error instanceof Error ? error : new Error('Signin failed.');
+      }
     },
     onError: uiActions.error,
   });
