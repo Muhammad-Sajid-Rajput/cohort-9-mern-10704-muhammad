@@ -10,9 +10,9 @@ if (!GEMINI_API_KEY) {
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
 const MODEL_FALLBACK_CHAIN = [
+  'gemini-3.5-flash',
+  'gemini-3.6-flash',
   'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-1.5-flash',
 ];
 
 export const sendToGemni = async (prompt: string) => {
@@ -20,14 +20,14 @@ export const sendToGemni = async (prompt: string) => {
 
   for (const model of MODEL_FALLBACK_CHAIN) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15_000);
+    const timeoutId = setTimeout(() => controller.abort(), 25_000);
 
     try {
       const response = await ai.models.generateContent({
         model,
         contents: prompt,
         config: {
-          temperature: 0.8,
+          temperature: 0.7,
           abortSignal: controller.signal,
         },
       });
@@ -39,20 +39,11 @@ export const sendToGemni = async (prompt: string) => {
       return { reply: response.text ?? 'Here is the relevant information found in your notes.' };
     } catch (e: unknown) {
       clearTimeout(timeoutId);
-      const err = e as { status?: number; error?: { code?: number }; message?: string };
-      const status = err?.status ?? err?.error?.code;
-
-      if (status === 404 || status === 429) {
-        logger.warn(`gemini: model "${model}" unavailable (${status}), trying next`);
-        lastError = e;
-        continue;
-      }
-      logger.error('gemini: unexpected error during content generation', {
-        model,
-        status,
-        error: e instanceof Error ? e.message : 'unknown error',
+      logger.warn(`gemini: model "${model}" failed, trying next in fallback chain`, {
+        error: e instanceof Error ? e.message : e,
       });
-      throw e;
+      lastError = e;
+      continue;
     }
   }
 
