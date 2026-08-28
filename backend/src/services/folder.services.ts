@@ -1,7 +1,7 @@
 import { NoteChunk } from '../models/notes.chunk';
-import mongoose from 'mongoose';
+import mongoose, { type QueryFilter } from 'mongoose';
 import { Folder, IFolder } from '../models/folder';
-import { Note } from '../models/notes';
+import { Note, INote } from '../models/notes';
 import { BadRequest } from '../utils/appError';
 import { toObjectId } from '../utils/toObjectId';
 import { logger } from '../utils/logger';
@@ -281,7 +281,7 @@ export const restoreFolderOf = async (
         ancestor.deletedAt = null;
         await ancestor.save();
 
-        const ancestorNoteFilter: Record<string, any> = {
+        const ancestorNoteFilter: QueryFilter<INote> = {
           user: toObjectId(userId),
           folder: ancestor._id,
           isDeleted: true,
@@ -305,7 +305,7 @@ export const restoreFolderOf = async (
     await folder.save();
 
     // Restore notes belonging to this folder and their chunks (scoped to cascadeDeletedAt if present)
-    const folderNoteFilter: Record<string, any> = {
+    const folderNoteFilter: QueryFilter<INote> = {
       user: toObjectId(userId),
       folder: folder._id,
       isDeleted: true,
@@ -322,7 +322,7 @@ export const restoreFolderOf = async (
 
     // Recursively restore subfolders and their notes (scoped to cascadeDeletedAt)
     const restoreSubtree = async (parentId: mongoose.Types.ObjectId) => {
-      const subfolderFilter: Record<string, any> = {
+      const subfolderFilter: QueryFilter<IFolder> = {
         user: toObjectId(userId),
         parentFolder: parentId,
         isDeleted: true,
@@ -338,7 +338,7 @@ export const restoreFolderOf = async (
         sub.deletedAt = null;
         await sub.save();
 
-        const subNoteFilter: Record<string, any> = {
+        const subNoteFilter: QueryFilter<INote> = {
           user: toObjectId(userId),
           folder: sub._id,
           isDeleted: true,

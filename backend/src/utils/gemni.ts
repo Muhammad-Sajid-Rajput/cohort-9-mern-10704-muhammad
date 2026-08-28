@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, ApiError } from '@google/genai';
 import { logger } from './logger';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -21,6 +21,29 @@ const ATTEMPT_TIMEOUT_MS = 10_000;
 export interface GeminiResponse {
   reply: string;
 }
+
+const getErrorStatus = (error: unknown): number | undefined => {
+  if (error instanceof ApiError) {
+    return error.status;
+  }
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    typeof (error as { status: unknown }).status === 'number'
+  ) {
+    return (error as { status: number }).status;
+  }
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'statusCode' in error &&
+    typeof (error as { statusCode: unknown }).statusCode === 'number'
+  ) {
+    return (error as { statusCode: number }).statusCode;
+  }
+  return undefined;
+};
 
 export const sendToGemni = async (
   prompt: string,
@@ -60,7 +83,7 @@ export const sendToGemni = async (
     } catch (e: unknown) {
       clearTimeout(timeoutId);
 
-      const status = (e as any)?.status || (e as any)?.statusCode;
+      const status = getErrorStatus(e);
       const isPermanentError = status === 400 || status === 401 || status === 403;
       if (isPermanentError) {
         logger.error(`gemini: permanent error (${status}) with model "${model}"`, {

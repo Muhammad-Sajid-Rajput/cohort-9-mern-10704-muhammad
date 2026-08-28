@@ -1,5 +1,5 @@
 import { Folder } from '../models/folder';
-import mongoose from 'mongoose';
+import mongoose, { type QueryFilter } from 'mongoose';
 import { logger } from '../utils/logger';
 import { Note, NoteTag, INote } from '../models/notes';
 import { BadRequest } from '../utils/appError';
@@ -126,14 +126,6 @@ export const editNoteOf = async (
   }
 };
 
-export interface NotesFilterQuery {
-  user: mongoose.Types.ObjectId;
-  isDeleted: { $ne: boolean };
-  tags?: NoteTag[] | string;
-  folder?: mongoose.Types.ObjectId | null;
-  $or?: Array<{ title?: { $regex: string; $options: string }; content?: { $regex: string; $options: string } }>;
-}
-
 export interface NotesQueryParams {
   page?: number;
   limit?: number;
@@ -172,7 +164,7 @@ export const getAllNotesOf = async (
       folder = folderArg;
     }
 
-    const filter: NotesFilterQuery = { user: toObjectId(userId), isDeleted: { $ne: true } };
+    const filter: QueryFilter<INote> = { user: toObjectId(userId), isDeleted: { $ne: true } };
 
     if (tag) {
       filter.tags = tag as unknown as NoteTag[];
@@ -193,8 +185,8 @@ export const getAllNotesOf = async (
     const skip = (page - 1) * limit;
 
     const [notes, total] = await Promise.all([
-      Note.find(filter as any).sort({ createdAt: -1 }).skip(skip).limit(limit),
-      Note.countDocuments(filter as any),
+      Note.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Note.countDocuments(filter),
     ]);
 
     return {
