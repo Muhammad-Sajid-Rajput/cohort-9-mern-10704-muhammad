@@ -18,7 +18,13 @@ const MODEL_FALLBACK_CHAIN = [
 const TOTAL_DEADLINE_MS = 25_000;
 const ATTEMPT_TIMEOUT_MS = 10_000;
 
-export const sendToGemni = async (prompt: string) => {
+export interface GeminiResponse {
+  reply: string;
+}
+
+export const sendToGemni = async (
+  prompt: string,
+): Promise<GeminiResponse> => {
   let lastError: unknown;
   const startTime = Date.now();
 
@@ -35,13 +41,15 @@ export const sendToGemni = async (prompt: string) => {
     const timeoutId = setTimeout(() => controller.abort(), attemptTimeout);
 
     try {
+      const isGemini3 = model.startsWith('gemini-3');
+      const config = isGemini3
+        ? { abortSignal: controller.signal }
+        : { temperature: 0.7, abortSignal: controller.signal };
+
       const response = await ai.models.generateContent({
         model,
         contents: prompt,
-        config: {
-          temperature: 0.7,
-          abortSignal: controller.signal,
-        },
+        config,
       });
       clearTimeout(timeoutId);
 
@@ -51,6 +59,16 @@ export const sendToGemni = async (prompt: string) => {
       return { reply: response.text ?? 'Here is the relevant information found in your notes.' };
     } catch (e: unknown) {
       clearTimeout(timeoutId);
+
+      const status = (e as any)?.status || (e as any)?.statusCode;
+      const isPermanentError = status === 400 || status === 401 || status === 403;
+      if (isPermanentError) {
+        logger.error(`gemini: permanent error (${status}) with model "${model}"`, {
+          error: e instanceof Error ? e.message : e,
+        });
+        throw e;
+      }
+
       logger.warn(`gemini: model "${model}" failed, trying next in fallback chain`, {
         error: e instanceof Error ? e.message : e,
       });

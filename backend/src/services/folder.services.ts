@@ -260,6 +260,8 @@ export const restoreFolderOf = async (
       throw new BadRequest('Folder not found in Trash');
     }
 
+    const cascadeDeletedAt = folder.deletedAt;
+
     // Restore every trashed ancestor so the folder is reachable from the root
     let ancestorId = folder.parentFolder;
     while (ancestorId) {
@@ -279,20 +281,20 @@ export const restoreFolderOf = async (
         ancestor.deletedAt = null;
         await ancestor.save();
 
-        const ancestorNotes = await Note.find(
-          { user: toObjectId(userId), folder: ancestor._id, isDeleted: true },
-          { _id: 1 },
-        );
+        const ancestorNoteFilter: Record<string, any> = {
+          user: toObjectId(userId),
+          folder: ancestor._id,
+          isDeleted: true,
+        };
+        if (cascadeDeletedAt) {
+          ancestorNoteFilter.deletedAt = cascadeDeletedAt;
+        }
+
+        const ancestorNotes = await Note.find(ancestorNoteFilter, { _id: 1 });
         const ancestorNoteIds = ancestorNotes.map((n) => n._id);
 
-        await Note.updateMany(
-          { user: toObjectId(userId), folder: ancestor._id, isDeleted: true },
-          { isDeleted: false, deletedAt: null },
-        );
-        await NoteChunk.updateMany(
-          { noteId: { $in: ancestorNoteIds } },
-          { isDeleted: false },
-        );
+        await Note.updateMany(ancestorNoteFilter, { isDeleted: false, deletedAt: null });
+        await NoteChunk.updateMany({ noteId: { $in: ancestorNoteIds } }, { isDeleted: false });
       }
 
       ancestorId = ancestor.parentFolder;
@@ -302,49 +304,54 @@ export const restoreFolderOf = async (
     folder.deletedAt = null;
     await folder.save();
 
-    // Restore notes belonging to this folder and their chunks
-    const folderNotes = await Note.find(
-      { user: toObjectId(userId), folder: folder._id, isDeleted: true },
-      { _id: 1 },
-    );
+    // Restore notes belonging to this folder and their chunks (scoped to cascadeDeletedAt if present)
+    const folderNoteFilter: Record<string, any> = {
+      user: toObjectId(userId),
+      folder: folder._id,
+      isDeleted: true,
+    };
+    if (cascadeDeletedAt) {
+      folderNoteFilter.deletedAt = cascadeDeletedAt;
+    }
+
+    const folderNotes = await Note.find(folderNoteFilter, { _id: 1 });
     const folderNoteIds = folderNotes.map((n) => n._id);
 
-    await Note.updateMany(
-      { user: toObjectId(userId), folder: folder._id, isDeleted: true },
-      { isDeleted: false, deletedAt: null },
-    );
-    await NoteChunk.updateMany(
-      { noteId: { $in: folderNoteIds } },
-      { isDeleted: false },
-    );
+    await Note.updateMany(folderNoteFilter, { isDeleted: false, deletedAt: null });
+    await NoteChunk.updateMany({ noteId: { $in: folderNoteIds } }, { isDeleted: false });
 
-    // Recursively restore subfolders and their notes
+    // Recursively restore subfolders and their notes (scoped to cascadeDeletedAt)
     const restoreSubtree = async (parentId: mongoose.Types.ObjectId) => {
-      const subfolders = await Folder.find({
+      const subfolderFilter: Record<string, any> = {
         user: toObjectId(userId),
         parentFolder: parentId,
         isDeleted: true,
-      });
+      };
+      if (cascadeDeletedAt) {
+        subfolderFilter.deletedAt = cascadeDeletedAt;
+      }
+
+      const subfolders = await Folder.find(subfolderFilter);
 
       for (const sub of subfolders) {
         sub.isDeleted = false;
         sub.deletedAt = null;
         await sub.save();
 
-        const subNotes = await Note.find(
-          { user: toObjectId(userId), folder: sub._id, isDeleted: true },
-          { _id: 1 },
-        );
+        const subNoteFilter: Record<string, any> = {
+          user: toObjectId(userId),
+          folder: sub._id,
+          isDeleted: true,
+        };
+        if (cascadeDeletedAt) {
+          subNoteFilter.deletedAt = cascadeDeletedAt;
+        }
+
+        const subNotes = await Note.find(subNoteFilter, { _id: 1 });
         const subNoteIds = subNotes.map((n) => n._id);
 
-        await Note.updateMany(
-          { user: toObjectId(userId), folder: sub._id, isDeleted: true },
-          { isDeleted: false, deletedAt: null },
-        );
-        await NoteChunk.updateMany(
-          { noteId: { $in: subNoteIds } },
-          { isDeleted: false },
-        );
+        await Note.updateMany(subNoteFilter, { isDeleted: false, deletedAt: null });
+        await NoteChunk.updateMany({ noteId: { $in: subNoteIds } }, { isDeleted: false });
 
         await restoreSubtree(sub._id);
       }

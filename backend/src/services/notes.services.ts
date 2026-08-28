@@ -1,7 +1,7 @@
 import { Folder } from '../models/folder';
 import mongoose from 'mongoose';
 import { logger } from '../utils/logger';
-import { Note, NoteTag } from '../models/notes';
+import { Note, NoteTag, INote } from '../models/notes';
 import { BadRequest } from '../utils/appError';
 import { NotesBody } from '../types/notes.types';
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
@@ -11,6 +11,8 @@ import { toObjectId } from '../utils/toObjectId';
 import { sendToGemni } from '../utils/gemni';
 
 type MongooseIdOrString = string | mongoose.Types.ObjectId;
+
+const escapeRegex = (str: string): string => str.replace(/[.*+?^${}()|[\]\\]/g, (match) => `\\${match}`);
 
 export const createNoteOf = async (
   userId: string | mongoose.Types.ObjectId,
@@ -80,7 +82,12 @@ export const editNoteOf = async (
       }
     }
 
-    const updatePayload: Record<string, any> = { title, content: body, tags };
+    const updatePayload: {
+      title: string;
+      content: string;
+      tags: NoteTag[];
+      folder?: mongoose.Types.ObjectId | null;
+    } = { title, content: body, tags: tags as NoteTag[] };
     if (folder !== undefined) {
       updatePayload.folder = folder ? toObjectId(folder) : null;
     }
@@ -118,6 +125,14 @@ export const editNoteOf = async (
     throw e;
   }
 };
+
+export interface NotesFilterQuery {
+  user: mongoose.Types.ObjectId;
+  isDeleted: { $ne: boolean };
+  tags?: NoteTag[] | string;
+  folder?: mongoose.Types.ObjectId | null;
+  $or?: Array<{ title?: { $regex: string; $options: string }; content?: { $regex: string; $options: string } }>;
+}
 
 export interface NotesQueryParams {
   page?: number;
@@ -157,10 +172,10 @@ export const getAllNotesOf = async (
       folder = folderArg;
     }
 
-    const filter: Record<string, any> = { user: toObjectId(userId), isDeleted: { $ne: true } };
+    const filter: NotesFilterQuery = { user: toObjectId(userId), isDeleted: { $ne: true } };
 
     if (tag) {
-      filter.tags = tag;
+      filter.tags = tag as unknown as NoteTag[];
     }
 
     if (folder !== undefined) {
@@ -168,17 +183,18 @@ export const getAllNotesOf = async (
     }
 
     if (search) {
+      const escapedSearch = escapeRegex(search);
       filter.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { content: { $regex: search, $options: 'i' } },
+        { title: { $regex: escapedSearch, $options: 'i' } },
+        { content: { $regex: escapedSearch, $options: 'i' } },
       ];
     }
 
     const skip = (page - 1) * limit;
 
     const [notes, total] = await Promise.all([
-      Note.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
-      Note.countDocuments(filter),
+      Note.find(filter as any).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Note.countDocuments(filter as any),
     ]);
 
     return {
