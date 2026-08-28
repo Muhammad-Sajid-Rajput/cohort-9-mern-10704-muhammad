@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { GoogleGenAI, ApiError } from '@google/genai';
+import { GoogleGenAI, ApiError, type GenerateContentConfig } from '@google/genai';
 import { logger } from './logger';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -9,11 +9,13 @@ if (!GEMINI_API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
-const MODEL_FALLBACK_CHAIN = [
+export type GeminiModel = 'gemini-3.5-flash' | 'gemini-3.6-flash' | 'gemini-2.5-flash';
+
+const MODEL_FALLBACK_CHAIN: readonly GeminiModel[] = [
   'gemini-3.5-flash',
   'gemini-3.6-flash',
   'gemini-2.5-flash',
-];
+] as const;
 
 const TOTAL_DEADLINE_MS = 25_000;
 const ATTEMPT_TIMEOUT_MS = 10_000;
@@ -65,7 +67,7 @@ export const sendToGemni = async (
 
     try {
       const isGemini3 = model.startsWith('gemini-3');
-      const config = isGemini3
+      const config: GenerateContentConfig = isGemini3
         ? { abortSignal: controller.signal }
         : { temperature: 0.7, abortSignal: controller.signal };
 

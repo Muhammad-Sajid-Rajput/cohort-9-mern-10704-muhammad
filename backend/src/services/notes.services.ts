@@ -135,6 +135,18 @@ export interface NotesQueryParams {
   folder?: string;
 }
 
+export interface GetAllNotesResponse {
+  message: string;
+  success: boolean;
+  notes: INote[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
 export const getAllNotesOf = async (
   userId: MongooseIdOrString,
   queryParamsOrPage: NotesQueryParams | number = 1,
@@ -142,17 +154,19 @@ export const getAllNotesOf = async (
   tagArg?: string,
   searchArg?: string,
   folderArg?: string,
-) => {
+): Promise<GetAllNotesResponse> => {
   try {
     let page = 1;
     let limit = 10;
     let search: string | undefined;
     let tag: string | undefined;
     let folder: string | undefined;
+    let skipArg: number | undefined;
 
     if (typeof queryParamsOrPage === 'object' && queryParamsOrPage !== null) {
       page = queryParamsOrPage.page ?? 1;
       limit = queryParamsOrPage.limit ?? 10;
+      skipArg = queryParamsOrPage.skip;
       search = queryParamsOrPage.search;
       tag = queryParamsOrPage.tag;
       folder = queryParamsOrPage.folder;
@@ -182,7 +196,7 @@ export const getAllNotesOf = async (
       ];
     }
 
-    const skip = (page - 1) * limit;
+    const skip = skipArg ?? (page - 1) * limit;
 
     const [notes, total] = await Promise.all([
       Note.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
