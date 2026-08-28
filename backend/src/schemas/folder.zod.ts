@@ -23,3 +23,7 @@ export const folderNoteParamSchema = z.object({
 export const addNoteToFolderSchema = z.object({
   noteId: z.string().regex(objectIdRegex, 'Invalid note ID'),
 });
+
+export const getFoldersQuerySchema = z.object({
+  parentFolderId: z.string().regex(objectIdRegex, 'Invalid parent folder ID').optional().nullable(),
+});

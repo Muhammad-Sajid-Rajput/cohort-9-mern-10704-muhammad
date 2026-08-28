@@ -18,6 +18,17 @@ export const createNoteOf = async (
 ) => {
   const { title, body, tags, folder } = noteBody;
   try {
+    if (folder) {
+      const existingFolder = await Folder.findOne({
+        _id: toObjectId(folder),
+        user: toObjectId(userId),
+        isDeleted: { $ne: true },
+      });
+      if (!existingFolder) {
+        throw new BadRequest('Folder not found');
+      }
+    }
+
     const note = await Note.create({
       title,
       content: body,
@@ -40,6 +51,7 @@ export const createNoteOf = async (
       noteTitle: title,
       embedding: embeddings[i],
       chunkIndex: i,
+      isDeleted: false,
     }));
     await NoteChunk.insertMany(docs);
 
@@ -57,12 +69,23 @@ export const editNoteOf = async (
 ) => {
   try {
     const { title, body, tags, folder } = noteBody;
+    if (folder) {
+      const existingFolder = await Folder.findOne({
+        _id: toObjectId(folder),
+        user: toObjectId(userId),
+        isDeleted: { $ne: true },
+      });
+      if (!existingFolder) {
+        throw new BadRequest('Folder not found');
+      }
+    }
+
     const updatePayload: Record<string, any> = { title, content: body, tags };
     if (folder !== undefined) {
       updatePayload.folder = folder ? toObjectId(folder) : null;
     }
     const noteExists = await Note.findOneAndUpdate(
-      { _id: noteId, user: userId },
+      { _id: noteId, user: userId, isDeleted: { $ne: true } },
       updatePayload,
       { returnDocument: 'after' },
     );
@@ -79,65 +102,80 @@ export const editNoteOf = async (
     const chunksWithTitle = chunks.map((chunk: string) => `${title}\n\n${chunk}`);
     const embeddings = await getEmbeddings(chunksWithTitle);
     const docs = chunksWithTitle.map((chunk, i) => ({
-      user: toObjectId(userId),
+      user: userId,
       content: chunk,
-      noteId,
+      noteId: noteExists._id,
       noteTitle: title,
       embedding: embeddings[i],
       chunkIndex: i,
+      isDeleted: false,
     }));
     await NoteChunk.insertMany(docs);
 
-    return {
-      message: 'Note updated successfully',
-      success: true,
-      note: noteExists,
-    };
+    return { message: 'Note updated successfully', success: true, note: noteExists };
   } catch (e) {
     logger.error('Error updating note', { error: e instanceof Error ? e.message : e });
     throw e;
   }
 };
 
-type NoteQuery = {
-  page: number;
-  limit: number;
-  skip: number;
-  search: string;
-  tag?: NoteTag;
-};
-
-interface INoteFilter {
-  user: MongooseIdOrString;
-  isDeleted?: boolean | { $ne: boolean };
-  tags?: NoteTag | { $regex: string; $options: string };
-  $or?: Array<{ [key: string]: { $regex: string; $options: string } }>;
+export interface NotesQueryParams {
+  page?: number;
+  limit?: number;
+  skip?: number;
+  search?: string;
+  tag?: string;
+  folder?: string;
 }
-
-const escapeRegex = (value: string) =>
-  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 export const getAllNotesOf = async (
   userId: MongooseIdOrString,
-  query: NoteQuery,
+  queryParamsOrPage: NotesQueryParams | number = 1,
+  limitArg: number = 10,
+  tagArg?: string,
+  searchArg?: string,
+  folderArg?: string,
 ) => {
-  const { page, limit, skip, search, tag } = query;
-
-  const filter: INoteFilter = { user: userId, isDeleted: { $ne: true } };
-  if (search) {
-    const escaped = escapeRegex(search);
-    filter.$or = [
-      { title: { $regex: escaped, $options: 'i' } },
-      { content: { $regex: escaped, $options: 'i' } },
-      { tags: { $regex: escaped, $options: 'i' } },
-    ];
-  }
-
-  if (tag) {
-    filter.tags = tag;
-  }
-
   try {
+    let page = 1;
+    let limit = 10;
+    let search: string | undefined;
+    let tag: string | undefined;
+    let folder: string | undefined;
+
+    if (typeof queryParamsOrPage === 'object' && queryParamsOrPage !== null) {
+      page = queryParamsOrPage.page ?? 1;
+      limit = queryParamsOrPage.limit ?? 10;
+      search = queryParamsOrPage.search;
+      tag = queryParamsOrPage.tag;
+      folder = queryParamsOrPage.folder;
+    } else {
+      page = Number(queryParamsOrPage) || 1;
+      limit = limitArg;
+      tag = tagArg;
+      search = searchArg;
+      folder = folderArg;
+    }
+
+    const filter: Record<string, any> = { user: toObjectId(userId), isDeleted: { $ne: true } };
+
+    if (tag) {
+      filter.tags = tag;
+    }
+
+    if (folder !== undefined) {
+      filter.folder = folder ? toObjectId(folder) : null;
+    }
+
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { content: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
     const [notes, total] = await Promise.all([
       Note.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
       Note.countDocuments(filter),
@@ -159,6 +197,8 @@ export const getAllNotesOf = async (
     throw e;
   }
 };
+
+export const getNotesOf = getAllNotesOf;
 
 export const getNoteOf = async (
   userId: MongooseIdOrString,
@@ -188,8 +228,13 @@ export const deleteNoteOf = async (
     );
 
     if (!note) {
-      throw new BadRequest('Note not found for this user');
+      throw new BadRequest('Note not found or already in trash');
     }
+
+    await NoteChunk.updateMany(
+      { noteId: note._id, user: toObjectId(userId) },
+      { isDeleted: true },
+    );
 
     return { message: 'Note moved to trash', success: true, note };
   } catch (e) {
@@ -203,6 +248,11 @@ export const deleteAllNotesOf = async (userId: MongooseIdOrString) => {
     const result = await Note.updateMany(
       { user: userId, isDeleted: { $ne: true } },
       { isDeleted: true, deletedAt: new Date() },
+    );
+
+    await NoteChunk.updateMany(
+      { user: toObjectId(userId) },
+      { isDeleted: true },
     );
 
     return { message: 'All notes moved to trash', success: true, notes: result };
@@ -251,7 +301,7 @@ export const augmententRetrival = async (
             queryVector: chatMessageEmbed,
             numCandidates: 100,
             limit: 5,
-            filter: { user: toObjectId(userId) },
+            filter: { user: toObjectId(userId), isDeleted: { $ne: true } },
           },
         },
         {
@@ -298,7 +348,7 @@ export const augmententRetrival = async (
       return { reply: "I couldn't find any notes in your workspace to answer that.", success: true };
     }
 
-        const prompt = `You are an intelligent, helpful, and precise workspace AI assistant.
+    const prompt = `You are an intelligent, helpful, and precise workspace AI assistant.
 Your goal is to assist the user by answering questions, summarizing notes, and providing clear insights based on their notes.
 
 Formatting & Structure Guidelines:
@@ -325,26 +375,23 @@ Answer:`;
   }
 };
 
-
 export const getTrashNotesOf = async (userId: MongooseIdOrString) => {
   try {
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
 
     const expiredNotes = await Note.find(
-      { user: userId, isDeleted: true, deletedAt: { $lt: threeDaysAgo } },
+      { user: toObjectId(userId), isDeleted: true, deletedAt: { $lt: threeDaysAgo } },
       { _id: 1 },
     );
 
     if (expiredNotes.length > 0) {
       const expiredIds = expiredNotes.map((n) => n._id);
-      await Promise.all([
-        Note.deleteMany({ _id: { $in: expiredIds } }),
-        NoteChunk.deleteMany({ noteId: { $in: expiredIds } }),
-      ]);
+      await Note.deleteMany({ _id: { $in: expiredIds }, user: toObjectId(userId), isDeleted: true });
+      await NoteChunk.deleteMany({ noteId: { $in: expiredIds }, user: toObjectId(userId) });
     }
 
     const notes = await Note.find({
-      user: userId,
+      user: toObjectId(userId),
       isDeleted: true,
       deletedAt: { $gte: threeDaysAgo },
     }).sort({ deletedAt: -1 });
@@ -362,7 +409,7 @@ export const restoreNoteOf = async (
 ) => {
   try {
     const note = await Note.findOneAndUpdate(
-      { _id: noteId, user: userId, isDeleted: true },
+      { _id: toObjectId(noteId), user: toObjectId(userId), isDeleted: true },
       { isDeleted: false, deletedAt: null },
       { returnDocument: 'after' },
     );
@@ -370,6 +417,11 @@ export const restoreNoteOf = async (
     if (!note) {
       throw new BadRequest('Note not found in trash');
     }
+
+    await NoteChunk.updateMany(
+      { noteId: note._id, user: toObjectId(userId) },
+      { isDeleted: false },
+    );
 
     return { message: 'Note restored successfully', success: true, note };
   } catch (e) {
@@ -383,14 +435,17 @@ export const permanentDeleteNoteOf = async (
   noteId: MongooseIdOrString,
 ) => {
   try {
-    const [note] = await Promise.all([
-      Note.findOneAndDelete({ _id: noteId, user: userId, isDeleted: true }),
-      NoteChunk.deleteMany({ noteId, user: userId }),
-    ]);
+    const note = await Note.findOneAndDelete({
+      _id: toObjectId(noteId),
+      user: toObjectId(userId),
+      isDeleted: true,
+    });
 
     if (!note) {
       throw new BadRequest('Note not found in trash');
     }
+
+    await NoteChunk.deleteMany({ noteId: note._id, user: toObjectId(userId) });
 
     return { message: 'Note permanently deleted', success: true, note };
   } catch (e) {
@@ -401,12 +456,13 @@ export const permanentDeleteNoteOf = async (
 
 export const emptyTrashOf = async (userId: MongooseIdOrString) => {
   try {
-    const trashNotes = await Note.find({ user: userId, isDeleted: true }, { _id: 1 });
+    const trashNotes = await Note.find({ user: toObjectId(userId), isDeleted: true }, { _id: 1 });
     const noteIds = trashNotes.map((n) => n._id);
 
     const [result] = await Promise.all([
-      Note.deleteMany({ user: userId, isDeleted: true }),
-      NoteChunk.deleteMany({ noteId: { $in: noteIds }, user: userId }),
+      Note.deleteMany({ user: toObjectId(userId), isDeleted: true }),
+      NoteChunk.deleteMany({ noteId: { $in: noteIds }, user: toObjectId(userId) }),
+      Folder.deleteMany({ user: toObjectId(userId), isDeleted: true }),
     ]);
 
     return { message: 'Trash emptied successfully', success: true, notes: result };

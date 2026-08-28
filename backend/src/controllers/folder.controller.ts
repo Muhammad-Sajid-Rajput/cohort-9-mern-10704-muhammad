@@ -21,6 +21,7 @@ import {
   folderIdParamSchema,
   folderNoteParamSchema,
   addNoteToFolderSchema,
+  getFoldersQuerySchema,
 } from '../schemas/folder.zod';
 
 export const createFolderHandler = asyncHandler(async (req: Request, res: Response) => {
@@ -51,7 +52,7 @@ export const deleteFolderHandler = asyncHandler(async (req: Request, res: Respon
 export const getFoldersHandler = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?._id;
   if (!userId) throw new UnauthorizedAccess('User not authenticated');
-  const parentFolderId = typeof req.query.parentFolderId === 'string' ? req.query.parentFolderId : null;
+  const { parentFolderId } = getFoldersQuerySchema.parse(req.query);
   const result = await getFoldersOf(userId, parentFolderId);
   return res.status(HTTPSTATUS.OK).json(result);
 });

@@ -15,12 +15,24 @@ const MODEL_FALLBACK_CHAIN = [
   'gemini-2.5-flash',
 ];
 
+const TOTAL_DEADLINE_MS = 25_000;
+const ATTEMPT_TIMEOUT_MS = 10_000;
+
 export const sendToGemni = async (prompt: string) => {
   let lastError: unknown;
+  const startTime = Date.now();
 
   for (const model of MODEL_FALLBACK_CHAIN) {
+    const elapsed = Date.now() - startTime;
+    const remainingMs = TOTAL_DEADLINE_MS - elapsed;
+    if (remainingMs <= 1000) {
+      logger.warn('gemini: total generation timeout budget exhausted');
+      break;
+    }
+
+    const attemptTimeout = Math.min(remainingMs, ATTEMPT_TIMEOUT_MS);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25_000);
+    const timeoutId = setTimeout(() => controller.abort(), attemptTimeout);
 
     try {
       const response = await ai.models.generateContent({

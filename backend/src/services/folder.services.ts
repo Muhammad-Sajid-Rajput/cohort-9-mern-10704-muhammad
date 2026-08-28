@@ -1,3 +1,4 @@
+import { NoteChunk } from '../models/notes.chunk';
 import mongoose from 'mongoose';
 import { Folder, IFolder } from '../models/folder';
 import { Note } from '../models/notes';
@@ -79,12 +80,11 @@ export const deleteFolder = async (
       throw new BadRequest('Folder not found');
     }
 
-    // Check if folder is empty (0 notes and 0 active subfolders)
+    // Check if folder is empty (0 total notes and 0 active subfolders)
     const [noteCount, subfolderCount] = await Promise.all([
       Note.countDocuments({
         user: toObjectId(userId),
         folder: folder._id,
-        isDeleted: { $ne: true },
       }),
       Folder.countDocuments({
         user: toObjectId(userId),
@@ -112,10 +112,17 @@ export const deleteFolder = async (
     folder.deletedAt = deletedAt;
     await folder.save();
 
-    // Soft delete contained notes, preserving folder reference so restoring restores them to this folder
+    // Soft delete contained notes and their chunks
+    const folderNotes = await Note.find({ user: toObjectId(userId), folder: folder._id }, { _id: 1 });
+    const folderNoteIds = folderNotes.map((n) => n._id);
+
     await Note.updateMany(
       { user: toObjectId(userId), folder: folder._id, isDeleted: { $ne: true } },
       { isDeleted: true, deletedAt },
+    );
+    await NoteChunk.updateMany(
+      { noteId: { $in: folderNoteIds } },
+      { isDeleted: true },
     );
 
     // Recursively soft-delete child subfolders and their notes
@@ -131,9 +138,16 @@ export const deleteFolder = async (
         sub.deletedAt = deletedAt;
         await sub.save();
 
+        const subNotes = await Note.find({ user: toObjectId(userId), folder: sub._id }, { _id: 1 });
+        const subNoteIds = subNotes.map((n) => n._id);
+
         await Note.updateMany(
           { user: toObjectId(userId), folder: sub._id, isDeleted: { $ne: true } },
           { isDeleted: true, deletedAt },
+        );
+        await NoteChunk.updateMany(
+          { noteId: { $in: subNoteIds } },
+          { isDeleted: true },
         );
         await softDeleteSubtree(sub._id);
       }
@@ -164,8 +178,35 @@ export const getTrashFoldersOf = async (userId: MongooseIdOrString) => {
       deletedAt: { $lt: threeDaysAgo },
     });
 
-    for (const exp of expiredFolders) {
-      await Folder.deleteOne({ _id: exp._id });
+    if (expiredFolders.length > 0) {
+      const collectSubtreeFolderIds = async (
+        parentIds: mongoose.Types.ObjectId[],
+      ): Promise<mongoose.Types.ObjectId[]> => {
+        const subfolders = await Folder.find(
+          { user: toObjectId(userId), parentFolder: { $in: parentIds } },
+          { _id: 1 },
+        );
+        if (subfolders.length === 0) return [];
+        const subIds = subfolders.map((s) => s._id);
+        const nestedIds = await collectSubtreeFolderIds(subIds);
+        return [...subIds, ...nestedIds];
+      };
+
+      const rootExpiredIds = expiredFolders.map((f) => f._id);
+      const subfolderIds = await collectSubtreeFolderIds(rootExpiredIds);
+      const allFolderIds = [...rootExpiredIds, ...subfolderIds];
+
+      const notes = await Note.find(
+        { user: toObjectId(userId), folder: { $in: allFolderIds } },
+        { _id: 1 },
+      );
+      const noteIds = notes.map((n) => n._id);
+
+      await Promise.all([
+        NoteChunk.deleteMany({ noteId: { $in: noteIds } }),
+        Note.deleteMany({ _id: { $in: noteIds }, user: toObjectId(userId) }),
+        Folder.deleteMany({ _id: { $in: allFolderIds }, user: toObjectId(userId) }),
+      ]);
     }
 
     // Fetch folders in trash within 3 days
@@ -219,31 +260,62 @@ export const restoreFolderOf = async (
       throw new BadRequest('Folder not found in Trash');
     }
 
-    // If it is a subfolder and its parent is also in Trash, restore parent as well
-    if (folder.parentFolder) {
-      const parent = await Folder.findOne({
-        _id: folder.parentFolder,
+    // Restore every trashed ancestor so the folder is reachable from the root
+    let ancestorId = folder.parentFolder;
+    while (ancestorId) {
+      const ancestor: IFolder | null = await Folder.findOne({
+        _id: ancestorId,
         user: toObjectId(userId),
       });
 
-      if (parent && parent.isDeleted) {
-        parent.isDeleted = false;
-        parent.deletedAt = null;
-        await parent.save();
-      } else if (!parent) {
-        // Parent was permanently deleted, convert to root folder
+      if (!ancestor) {
+        // Ancestor was permanently deleted, convert to root folder
         folder.parentFolder = null;
+        break;
       }
+
+      if (ancestor.isDeleted) {
+        ancestor.isDeleted = false;
+        ancestor.deletedAt = null;
+        await ancestor.save();
+
+        const ancestorNotes = await Note.find(
+          { user: toObjectId(userId), folder: ancestor._id, isDeleted: true },
+          { _id: 1 },
+        );
+        const ancestorNoteIds = ancestorNotes.map((n) => n._id);
+
+        await Note.updateMany(
+          { user: toObjectId(userId), folder: ancestor._id, isDeleted: true },
+          { isDeleted: false, deletedAt: null },
+        );
+        await NoteChunk.updateMany(
+          { noteId: { $in: ancestorNoteIds } },
+          { isDeleted: false },
+        );
+      }
+
+      ancestorId = ancestor.parentFolder;
     }
 
     folder.isDeleted = false;
     folder.deletedAt = null;
     await folder.save();
 
-    // Restore notes belonging to this folder
+    // Restore notes belonging to this folder and their chunks
+    const folderNotes = await Note.find(
+      { user: toObjectId(userId), folder: folder._id, isDeleted: true },
+      { _id: 1 },
+    );
+    const folderNoteIds = folderNotes.map((n) => n._id);
+
     await Note.updateMany(
       { user: toObjectId(userId), folder: folder._id, isDeleted: true },
       { isDeleted: false, deletedAt: null },
+    );
+    await NoteChunk.updateMany(
+      { noteId: { $in: folderNoteIds } },
+      { isDeleted: false },
     );
 
     // Recursively restore subfolders and their notes
@@ -259,9 +331,19 @@ export const restoreFolderOf = async (
         sub.deletedAt = null;
         await sub.save();
 
+        const subNotes = await Note.find(
+          { user: toObjectId(userId), folder: sub._id, isDeleted: true },
+          { _id: 1 },
+        );
+        const subNoteIds = subNotes.map((n) => n._id);
+
         await Note.updateMany(
           { user: toObjectId(userId), folder: sub._id, isDeleted: true },
           { isDeleted: false, deletedAt: null },
+        );
+        await NoteChunk.updateMany(
+          { noteId: { $in: subNoteIds } },
+          { isDeleted: false },
         );
 
         await restoreSubtree(sub._id);
@@ -291,35 +373,36 @@ export const permanentDeleteFolderOf = async (
       throw new BadRequest('Folder not found');
     }
 
-    // Delete contained notes and their chunks
-    const notes = await Note.find({
-      user: toObjectId(userId),
-      folder: folder._id,
-    });
-
-    for (const n of notes) {
-      await Note.deleteOne({ _id: n._id });
-    }
-
-    // Recursively delete subfolders
-    const deleteSubtree = async (parentId: mongoose.Types.ObjectId) => {
-      const subfolders = await Folder.find({
-        user: toObjectId(userId),
-        parentFolder: parentId,
-      });
-
-      for (const sub of subfolders) {
-        const subNotes = await Note.find({ user: toObjectId(userId), folder: sub._id });
-        for (const sn of subNotes) {
-          await Note.deleteOne({ _id: sn._id });
-        }
-        await deleteSubtree(sub._id);
-        await Folder.deleteOne({ _id: sub._id });
-      }
+    // Collect all subfolder IDs recursively
+    const collectSubtreeFolderIds = async (
+      parentId: mongoose.Types.ObjectId,
+    ): Promise<mongoose.Types.ObjectId[]> => {
+      const subfolders = await Folder.find(
+        { user: toObjectId(userId), parentFolder: parentId },
+        { _id: 1 },
+      );
+      if (subfolders.length === 0) return [];
+      const subIds = subfolders.map((s) => s._id);
+      const nestedPromises = subIds.map((id) => collectSubtreeFolderIds(id));
+      const nestedResults = await Promise.all(nestedPromises);
+      return [...subIds, ...nestedResults.flat()];
     };
 
-    await deleteSubtree(folder._id);
-    await Folder.deleteOne({ _id: folder._id });
+    const subfolderIds = await collectSubtreeFolderIds(folder._id);
+    const allFolderIds = [folder._id, ...subfolderIds];
+
+    // Find and delete notes & chunks in bulk
+    const notes = await Note.find(
+      { user: toObjectId(userId), folder: { $in: allFolderIds } },
+      { _id: 1 },
+    );
+    const noteIds = notes.map((n) => n._id);
+
+    await Promise.all([
+      NoteChunk.deleteMany({ noteId: { $in: noteIds } }),
+      Note.deleteMany({ _id: { $in: noteIds }, user: toObjectId(userId) }),
+      Folder.deleteMany({ _id: { $in: allFolderIds }, user: toObjectId(userId) }),
+    ]);
 
     return { message: 'Folder permanently deleted', success: true };
   } catch (e) {

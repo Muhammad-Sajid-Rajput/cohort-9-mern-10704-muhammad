@@ -14,6 +14,7 @@ import {
 } from '../services/folder.services';
 import { Folder } from '../models/folder';
 import { Note } from '../models/notes';
+import { NoteChunk } from '../models/notes.chunk';
 import { logger } from '../utils/logger';
 import { toObjectId } from '../utils/toObjectId';
 
@@ -25,29 +26,44 @@ vi.mock('../models/folder', () => ({
     find: vi.fn(),
     updateOne: vi.fn(),
     deleteOne: vi.fn(),
+    deleteMany: vi.fn(),
     countDocuments: vi.fn(),
   },
 }));
 
 vi.mock('../models/notes', () => ({
   Note: {
+    create: vi.fn(),
     findOneAndUpdate: vi.fn(),
+    findOne: vi.fn(),
     find: vi.fn(),
     updateMany: vi.fn(),
     deleteOne: vi.fn(),
+    deleteMany: vi.fn(),
     countDocuments: vi.fn(),
+  },
+}));
+
+vi.mock('../models/notes.chunk', () => ({
+  NoteChunk: {
+    insertMany: vi.fn(),
+    deleteMany: vi.fn(),
+    updateMany: vi.fn(),
   },
 }));
 
 vi.mock('../utils/logger', () => ({
   logger: {
     error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
   },
 }));
 
 describe('folder.services', () => {
   const userId = toObjectId('507f1f77bcf86cd799439011');
   const folderId = toObjectId('507f1f77bcf86cd799439012');
+  const subfolderId = toObjectId('507f1f77bcf86cd799439015');
   const noteId = toObjectId('507f1f77bcf86cd799439013');
 
   beforeEach(() => {
@@ -70,12 +86,12 @@ describe('folder.services', () => {
     });
 
     it('should create a nested folder when parent exists', async () => {
-      const parentId = '507f1f77bcf86cd799439014';
+      const parentId = toObjectId('507f1f77bcf86cd799439014');
       vi.mocked(Folder.findOne).mockResolvedValue({ _id: parentId } as any);
       const fakeSubfolder = { _id: folderId, name: 'Projects', parentFolder: parentId };
       vi.mocked(Folder.create).mockResolvedValue(fakeSubfolder as any);
 
-      const res = await createFolder(userId, 'Projects', parentId);
+      const res = await createFolder(userId, 'Projects', parentId.toString());
       expect(Folder.findOne).toHaveBeenCalledWith({
         _id: expect.any(Object),
         user: expect.any(Object),
@@ -130,7 +146,7 @@ describe('folder.services', () => {
       expect(res.isPermanent).toBe(true);
     });
 
-    it('should soft delete a non-empty folder to trash', async () => {
+    it('should soft delete a non-empty folder and its chunks to trash', async () => {
       const fakeFolder = {
         _id: folderId,
         user: userId,
@@ -140,7 +156,9 @@ describe('folder.services', () => {
       vi.mocked(Folder.findOne).mockResolvedValue(fakeFolder as any);
       vi.mocked(Note.countDocuments).mockResolvedValue(2);
       vi.mocked(Folder.countDocuments).mockResolvedValue(0);
+      vi.mocked(Note.find).mockResolvedValue([{ _id: noteId }] as any);
       vi.mocked(Note.updateMany).mockResolvedValue({ modifiedCount: 2 } as any);
+      vi.mocked(NoteChunk.updateMany).mockResolvedValue({ modifiedCount: 2 } as any);
       vi.mocked(Folder.find).mockResolvedValue([]);
 
       const res = await deleteFolder(userId, folderId);
@@ -150,14 +168,51 @@ describe('folder.services', () => {
         { user: userId, folder: folderId, isDeleted: { $ne: true } },
         { isDeleted: true, deletedAt: expect.any(Date) },
       );
+      expect(NoteChunk.updateMany).toHaveBeenCalledWith(
+        { noteId: { $in: [noteId] } },
+        { isDeleted: true },
+      );
       expect(res.success).toBe(true);
       expect(res.isPermanent).toBe(false);
     });
   });
 
+  describe('getTrashFoldersOf', () => {
+    it('should purge expired folders and cascade cleanup notes and chunks', async () => {
+      const expiredFolderDoc = { _id: folderId };
+      vi.mocked(Folder.find)
+        .mockResolvedValueOnce([expiredFolderDoc] as any) // expired search
+        .mockResolvedValueOnce([{ _id: subfolderId }] as any) // collect subfolders
+        .mockResolvedValueOnce([]) // nested subfolders
+        .mockReturnValueOnce({
+          sort: vi.fn().mockResolvedValue([
+            {
+              _id: folderId,
+              name: 'Trash Folder',
+              toObject: () => ({ _id: folderId, name: 'Trash Folder' }),
+            },
+          ]),
+        } as any);
+
+      vi.mocked(Note.find).mockResolvedValue([{ _id: noteId }] as any);
+      vi.mocked(NoteChunk.deleteMany).mockResolvedValue({ deletedCount: 1 } as any);
+      vi.mocked(Note.deleteMany).mockResolvedValue({ deletedCount: 1 } as any);
+      vi.mocked(Folder.deleteMany).mockResolvedValue({ deletedCount: 2 } as any);
+      vi.mocked(Note.countDocuments).mockResolvedValue(3);
+
+      const res = await getTrashFoldersOf(userId);
+      expect(NoteChunk.deleteMany).toHaveBeenCalledWith({ noteId: { $in: [noteId] } });
+      expect(Note.deleteMany).toHaveBeenCalledWith({ _id: { $in: [noteId] }, user: userId });
+      expect(Folder.deleteMany).toHaveBeenCalledWith({ _id: { $in: [folderId, subfolderId] }, user: userId });
+      expect(res.success).toBe(true);
+      expect(res.folders).toHaveLength(1);
+      expect(res.folders[0].noteCount).toBe(3);
+    });
+  });
+
   describe('restoreFolderOf', () => {
-    it('should restore folder, its notes, and preserve parent folder', async () => {
-      const parentId = '507f1f77bcf86cd799439014';
+    it('should restore folder, its notes, chunks, and walk ancestor chain', async () => {
+      const parentId = toObjectId('507f1f77bcf86cd799439014');
       const fakeFolder = {
         _id: folderId,
         parentFolder: parentId,
@@ -166,15 +221,18 @@ describe('folder.services', () => {
       };
       const fakeParent = {
         _id: parentId,
+        parentFolder: null,
         isDeleted: true,
         save: vi.fn().mockResolvedValue(true),
       };
 
       vi.mocked(Folder.findOne)
-        .mockResolvedValueOnce(fakeFolder as any)
-        .mockResolvedValueOnce(fakeParent as any);
+        .mockResolvedValueOnce(fakeFolder as any) // folder lookup
+        .mockResolvedValueOnce(fakeParent as any); // parent ancestor lookup
 
+      vi.mocked(Note.find).mockResolvedValue([{ _id: noteId }] as any);
       vi.mocked(Note.updateMany).mockResolvedValue({ modifiedCount: 1 } as any);
+      vi.mocked(NoteChunk.updateMany).mockResolvedValue({ modifiedCount: 1 } as any);
       vi.mocked(Folder.find).mockResolvedValue([]);
 
       const res = await restoreFolderOf(userId, folderId);
@@ -186,20 +244,30 @@ describe('folder.services', () => {
         { user: userId, folder: folderId, isDeleted: true },
         { isDeleted: false, deletedAt: null },
       );
+      expect(NoteChunk.updateMany).toHaveBeenCalledWith(
+        { noteId: { $in: [noteId] } },
+        { isDeleted: false },
+      );
       expect(res.success).toBe(true);
     });
   });
 
   describe('permanentDeleteFolderOf', () => {
-    it('should permanently delete folder and its contents', async () => {
+    it('should permanently delete folder, subfolders, notes, and chunks in bulk', async () => {
       const fakeFolder = { _id: folderId, user: userId };
       vi.mocked(Folder.findOne).mockResolvedValue(fakeFolder as any);
-      vi.mocked(Note.find).mockResolvedValue([]);
-      vi.mocked(Folder.find).mockResolvedValue([]);
-      vi.mocked(Folder.deleteOne).mockResolvedValue({ deletedCount: 1 } as any);
+      vi.mocked(Folder.find)
+        .mockResolvedValueOnce([{ _id: subfolderId }] as any) // subfolders
+        .mockResolvedValueOnce([]); // nested subfolders
+      vi.mocked(Note.find).mockResolvedValue([{ _id: noteId }] as any);
+      vi.mocked(NoteChunk.deleteMany).mockResolvedValue({ deletedCount: 2 } as any);
+      vi.mocked(Note.deleteMany).mockResolvedValue({ deletedCount: 1 } as any);
+      vi.mocked(Folder.deleteMany).mockResolvedValue({ deletedCount: 2 } as any);
 
       const res = await permanentDeleteFolderOf(userId, folderId);
-      expect(Folder.deleteOne).toHaveBeenCalledWith({ _id: folderId });
+      expect(NoteChunk.deleteMany).toHaveBeenCalledWith({ noteId: { $in: [noteId] } });
+      expect(Note.deleteMany).toHaveBeenCalledWith({ _id: { $in: [noteId] }, user: userId });
+      expect(Folder.deleteMany).toHaveBeenCalledWith({ _id: { $in: [folderId, subfolderId] }, user: userId });
       expect(res.success).toBe(true);
     });
   });
@@ -266,6 +334,43 @@ describe('folder.services', () => {
       const res = await getAllFoldersFlat(userId);
       expect(res.success).toBe(true);
       expect(res.folders).toHaveLength(1);
+    });
+  });
+
+  describe('getFolderDetails', () => {
+    it('should fetch folder details with breadcrumbs, subfolders, and notes', async () => {
+      const parentId = toObjectId('507f1f77bcf86cd799439014');
+      const fakeFolder = {
+        _id: folderId,
+        name: 'Projects',
+        parentFolder: parentId,
+        toObject: () => ({ _id: folderId, name: 'Projects', parentFolder: parentId }),
+      };
+      const fakeParent = {
+        _id: parentId,
+        name: 'Work',
+        parentFolder: null,
+      };
+
+      vi.mocked(Folder.findOne)
+        .mockResolvedValueOnce(fakeFolder as any) // main folder
+        .mockResolvedValueOnce(fakeParent as any); // parent for breadcrumbs
+
+      vi.mocked(Folder.find).mockReturnValue({
+        sort: vi.fn().mockResolvedValue([]),
+      } as any);
+
+      vi.mocked(Note.find).mockReturnValue({
+        sort: vi.fn().mockResolvedValue([{ _id: noteId, title: 'Note 1' }]),
+      } as any);
+
+      const res = await getFolderDetails(userId, folderId);
+      expect(res.success).toBe(true);
+      expect(res.folder.name).toBe('Projects');
+      expect(res.breadcrumbs).toHaveLength(2);
+      expect(res.breadcrumbs[0].name).toBe('Work');
+      expect(res.breadcrumbs[1].name).toBe('Projects');
+      expect(res.notes).toHaveLength(1);
     });
   });
 });
