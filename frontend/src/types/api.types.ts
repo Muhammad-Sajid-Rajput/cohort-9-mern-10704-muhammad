@@ -11,7 +11,12 @@ export interface ApiResponse<T> {
   data: T;
 }
 
-export type AuthResponse = ApiResponse<{ user: User }>;
+export interface AuthResponse {
+  success: boolean;
+  message?: string;
+  user?: User;
+  data?: { user: User };
+}
 
 export interface Note {
   _id: string;
@@ -24,7 +29,11 @@ export interface Note {
   updatedAt: string;
 }
 
-export interface PaginatedNotesResponse extends ApiResponse<Note[]> {
+export interface PaginatedNotesResponse {
+  success: boolean;
+  message?: string;
+  data?: Note[];
+  notes?: Note[];
   pagination: {
     page: number;
     limit: number;
@@ -33,10 +42,18 @@ export interface PaginatedNotesResponse extends ApiResponse<Note[]> {
   };
 }
 
-export type SingleNoteResponse = ApiResponse<Note>;
+export interface SingleNoteResponse {
+  success: boolean;
+  message?: string;
+  data?: Note;
+  note?: Note;
+}
 
-export type ChatResponse = ApiResponse<{ reply: string }>;
-
+export interface ChatResponse {
+  success: boolean;
+  reply?: string;
+  data?: { reply: string };
+}
 
 export interface SignupRequest {
   username: string;

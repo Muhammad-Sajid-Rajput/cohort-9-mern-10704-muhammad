@@ -34,7 +34,7 @@ apiClient.interceptors.response.use(
 
     if (
       originalRequest.url?.match(
-        /\/(signin|signup|refreshToken|verify|resetPassword|forgotPassword)(\/|$)/,
+        /\/(signin|signup|refreshToken|verify|resetPassword|forgotPassword|me)(\/|$)/,
       )
     ) {
       return Promise.reject(error);
@@ -51,7 +51,7 @@ apiClient.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      await axios.get(API_CONSTANTS.BASE_URL + API_CONSTANTS.AUTH.REFRESH, {
+      await axios.post(API_CONSTANTS.BASE_URL + API_CONSTANTS.AUTH.REFRESH, {}, {
         withCredentials: true,
       });
       processQueue(null);

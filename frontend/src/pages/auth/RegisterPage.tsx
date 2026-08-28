@@ -25,7 +25,7 @@ export const RegisterPage = () => {
     });
 
     if (isAuthenticated) {
-        return <Navigate to="/dashboard" replace />;
+        return <Navigate to="/notes" replace />;
     }
 
     const onSubmit = async (data: RegisterFormData) => {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
-import { FileText, Shield, Zap, Mail, Send, CheckCircle2, Clock } from 'lucide-react';
+import { BookOpen, FileText, Shield, Zap, Mail, Send, CheckCircle2, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { uiActions } from '../../utils/uiActions';
 
@@ -14,7 +14,7 @@ export const LandingPage = () => {
 	const [contactSuccess, setContactSuccess] = useState(false);
 
 	if (isAuthenticated) {
-		return <Navigate to="/dashboard" replace />;
+		return <Navigate to="/notes" replace />;
 	}
 
 	const handleContactSubmit = (e: React.FormEvent) => {
@@ -33,7 +33,7 @@ export const LandingPage = () => {
 	};
 
 	return (
-		<div id="home" className="min-h-screen bg-white text-on-surface overflow-x-hidden relative font-sans">
+		<div id="home" className="min-h-screen bg-white text-on-surface overflow-x-hidden relative font-sans no-scrollbar w-full box-border">
 			<div
 				className="absolute top-32 left-1/2 -translate-x-1/2 w-full max-w-4xl h-105 pointer-events-none z-0 bg-grid-pattern rounded-3xl"
 				style={{
@@ -43,8 +43,8 @@ export const LandingPage = () => {
 			/>
 			<header className="relative z-10 flex items-center justify-between px-6 py-6 md:px-12 max-w-7xl mx-auto">
 				<div className="flex items-center gap-3">
-					<div className="w-9 h-9 flex items-center justify-center rounded-xl shadow-xs" style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-on-semantic)' }}>
-						<FileText className="h-5 w-5" />
+					<div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-xs">
+						<BookOpen className="h-5 w-5" />
 					</div>
 					<span className="text-xl font-extrabold text-on-surface tracking-tight">NotesHub</span>
 				</div>
@@ -74,7 +74,7 @@ export const LandingPage = () => {
 				</div>
 			</header>
 
-			<main className="relative z-10 max-w-5xl mx-auto px-6 pt-16 pb-32 text-center">
+			<main className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 pt-12 sm:pt-16 pb-24 sm:pb-32 text-center w-full box-border overflow-x-hidden">
 				<motion.h1
 					initial={{ opacity: 0, y: 20 }}
 					animate={{ opacity: 1, y: 0 }}
@@ -127,7 +127,19 @@ export const LandingPage = () => {
 					</div>
 				</motion.div>
 
-				<div id="features" className="grid md:grid-cols-3 gap-8 mt-32 text-left">
+				<div id="features" className="mt-32 pt-8 text-center space-y-4">
+					<div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary-tint text-primary text-xs font-extrabold uppercase tracking-wider shadow-xs">
+						Powerful Features
+					</div>
+					<h2 className="text-3xl sm:text-4xl font-extrabold text-on-surface tracking-tight">
+						Everything you need to organize your thoughts
+					</h2>
+					<p className="text-on-surface-variant font-medium text-base max-w-2xl mx-auto">
+						Built for clarity, speed, and seamless AI-assisted note taking.
+					</p>
+				</div>
+
+				<div className="grid md:grid-cols-3 gap-8 mt-12 text-left">
 					{[
 						{ icon: Shield, title: "Secure by design", desc: "Strict validation, short-lived tokens, and HTTP-only cookies keep your ideas and sessions entirely safe." },
 						{ icon: FileText, title: "Frictionless editing", desc: "Experience a clean, distraction-free markdown editing environment natively integrated with rich-text capabilities." },
@@ -152,16 +164,28 @@ export const LandingPage = () => {
 					))}
 				</div>
 
-				<div id="contact" className="mt-36 pt-12 text-left">
+				<div id="contact" className="mt-32 sm:mt-36 pt-8 text-center space-y-4 mb-8 sm:mb-12">
+					<div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary-tint text-primary text-xs font-extrabold uppercase tracking-wider shadow-xs">
+						Contact Us
+					</div>
+					<h2 className="text-3xl sm:text-4xl font-extrabold text-on-surface tracking-tight">
+						We'd love to hear from you
+					</h2>
+					<p className="text-on-surface-variant font-medium text-base max-w-2xl mx-auto">
+						Have questions, feedback, or need assistance? Reach out to our team.
+					</p>
+				</div>
+
+				<div className="mt-12 text-left">
 					<motion.div
 						initial={{ opacity: 0, y: 30 }}
 						whileInView={{ opacity: 1, y: 0 }}
 						viewport={{ once: true }}
 						transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-						className="max-w-4xl mx-auto bg-white rounded-4xl border border-outline-variant shadow-xl p-8 sm:p-12"
+						className="max-w-4xl mx-auto bg-white rounded-3xl sm:rounded-4xl border border-outline-variant shadow-xl p-6 sm:p-10 w-full box-border overflow-hidden"
 					>
-						<div className="grid grid-cols-1 md:grid-cols-5 gap-10">
-							<div className="md:col-span-2 space-y-6 flex flex-col justify-between">
+						<div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-10 w-full box-border">
+							<div className="lg:col-span-2 space-y-6 flex flex-col justify-between w-full box-border">
 								<div className="space-y-4">
 									<div className="w-12 h-12 rounded-2xl bg-primary-tint flex items-center justify-center text-primary shadow-xs">
 										<Mail className="w-6 h-6" />
@@ -193,7 +217,7 @@ export const LandingPage = () => {
 								</div>
 							</div>
 
-							<div className="md:col-span-3">
+							<div className="lg:col-span-3 w-full box-border">
 								{contactSuccess ? (
 									<div className="h-full flex flex-col items-center justify-center text-center space-y-4 py-8 animate-in fade-in duration-300">
 										<div className="w-14 h-14 bg-primary-tint text-primary rounded-full flex items-center justify-center shadow-xs">
@@ -212,7 +236,7 @@ export const LandingPage = () => {
 									</div>
 								) : (
 									<form onSubmit={handleContactSubmit} className="space-y-4">
-										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full box-border">
 											<div className="space-y-1.5">
 												<label className="text-xs font-extrabold text-on-surface uppercase tracking-wider">Your Name *</label>
 												<input
@@ -276,6 +300,27 @@ export const LandingPage = () => {
 					</motion.div>
 				</div>
 			</main>
+
+			<footer className="bg-primary text-on-primary py-8 px-6 border-t border-primary-hover/20">
+				<div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold">
+					<div className="flex items-center gap-2.5">
+						<div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-white shadow-xs">
+							<BookOpen className="w-4 h-4" />
+						</div>
+						<span className="font-extrabold text-sm tracking-tight">NotesHub</span>
+					</div>
+
+					<p className="text-white/80">
+						&copy; {new Date().getFullYear()} NotesHub. All rights reserved.
+					</p>
+
+					<div className="flex items-center gap-6 text-white/90">
+						<a href="#features" className="hover:text-white transition-colors">Features</a>
+						<a href="#contact" className="hover:text-white transition-colors">Contact</a>
+						<Link to="/login" className="hover:text-white transition-colors">Sign In</Link>
+					</div>
+				</div>
+			</footer>
 		</div>
 	);
 };
