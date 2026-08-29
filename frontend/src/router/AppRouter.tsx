@@ -5,6 +5,8 @@ import { RegisterPage } from '../pages/auth/RegisterPage';
 import { ListPage } from '../pages/notes/ListPage';
 import { DetailPage } from '../pages/notes/DetailPage';
 import { FormPage } from '../pages/notes/FormPage';
+import { TrashPage } from '../pages/notes/TrashPage';
+import { FoldersPage } from '../pages/folders/FoldersPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { VerifyEmailPage } from '../pages/auth/VerifyEmailPage';
 import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage';
@@ -27,8 +29,9 @@ export const AppRouter = () => (
       <Route path="/api/v1/auth/verify/:token" element={<VerifyEmailPage />} />
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/notes" element={<ListPage />} />
-        <Route path="/folders" element={<ListPage />} />
-        <Route path="/trash" element={<ListPage />} />
+        <Route path="/folders" element={<FoldersPage />} />
+        <Route path="/folders/:folderId" element={<FoldersPage />} />
+        <Route path="/trash" element={<TrashPage />} />
         <Route path="/notes/new" element={<FormPage />} />
         <Route path="/notes/:id" element={<DetailPage />} />
         <Route path="/notes/:id/edit" element={<FormPage />} />

@@ -24,7 +24,10 @@ export interface Note {
   body: string;
   content?: string;
   tags: ('work' | 'personal' | 'life')[];
+  folder?: string | null;
   user: string;
+  isDeleted?: boolean;
+  deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -47,6 +50,11 @@ export interface SingleNoteResponse {
   message?: string;
   data?: Note;
   note?: Note;
+}
+
+export interface ChatRequest {
+  message: string;
+  noteId?: string | null;
 }
 
 export interface ChatResponse {
@@ -78,12 +86,14 @@ export interface CreateNoteRequest {
   title: string;
   body: string;
   tags: ('work' | 'personal' | 'life')[];
+  folder?: string | null;
 }
 
 export interface UpdateNoteRequest {
   title?: string;
   body?: string;
   tags?: ('work' | 'personal' | 'life')[];
+  folder?: string | null;
 }
 
 export interface NoteQueryParams {
@@ -92,4 +102,44 @@ export interface NoteQueryParams {
   page?: number;
   limit?: number;
   sort?: string;
+}
+
+export interface TrashResponse {
+  success: boolean;
+  message?: string;
+  notes?: Note[];
+  data?: Note[];
+}
+
+export interface Folder {
+  _id: string;
+  name: string;
+  user: string;
+  parentFolder?: string | null;
+  subfolderCount?: number;
+  noteCount?: number;
+  isDeleted?: boolean;
+  deletedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FolderBreadcrumb {
+  _id: string;
+  name: string;
+}
+
+export interface FolderDetailsResponse extends ApiResponse<Folder> {
+  folder: Folder;
+  breadcrumbs: FolderBreadcrumb[];
+  subfolders: Folder[];
+  notes: Note[];
+}
+
+export interface SingleFolderResponse extends ApiResponse<Folder> {
+  folder?: Folder;
+}
+
+export interface FoldersResponse extends ApiResponse<Folder[]> {
+  folders: Folder[];
 }

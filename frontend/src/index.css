@@ -247,6 +247,19 @@ html, body, * {
     background-color: var(--surface-hover);
   }
 
+  .prose a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.15s ease;
+  }
+
+  .prose a:hover {
+    color: var(--primary-hover);
+  }
+
   .prose pre {
     background-color: #171717;
     color: #ffffff;

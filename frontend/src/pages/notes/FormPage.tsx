@@ -3,7 +3,7 @@ import { useEffect, type ReactElement } from 'react';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useNotes } from '../../hooks/useNotes';
 import { Button } from '../../components/ui/Button';
 import { RichTextEditor } from '../../components/editor/RichTextEditor';
@@ -21,6 +21,8 @@ export const FormPage = (): ReactElement | null => {
   const { id } = useParams<{ id: string }>();
   const isEdit = !!id;
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const folderId = searchParams.get('folderId');
   const { useGetById, create, update } = useNotes();
   const { data: rawNoteData, isLoading: isNoteLoading } = useGetById(id || '');
 
@@ -67,8 +69,15 @@ export const FormPage = (): ReactElement | null => {
         await update({ id, data: formData });
         navigate(`/notes/${id}`);
       } else {
-        await create(formData);
-        navigate('/notes');
+        await create({
+          ...formData,
+          folder: folderId || null,
+        });
+        if (folderId) {
+          navigate(`/folders/${folderId}`);
+        } else {
+          navigate('/notes');
+        }
       }
     } catch {
       return;

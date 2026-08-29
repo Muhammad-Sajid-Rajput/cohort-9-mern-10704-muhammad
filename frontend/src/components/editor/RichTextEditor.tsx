@@ -1,12 +1,14 @@
 import { useEditor, EditorContent } from '@tiptap/react';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, useRef, type ReactNode, type KeyboardEvent } from 'react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
 import {
   Bold, Italic, List, Quote, Code, Heading1, Heading2,
-  Undo, Redo, Strikethrough, ListOrdered, Link as LinkIcon
+  Undo, Redo, Strikethrough, ListOrdered, Link as LinkIcon, Trash2
 } from 'lucide-react';
+import { Modal } from '../ui/Modal';
+import { Button } from '../ui/Button';
 
 interface RichTextEditorProps {
   value: string;
@@ -27,21 +29,48 @@ const MenuButton = ({ onClick, isActive, children, title }: MenuButtonProps) => 
     onClick={onClick}
     title={title}
     aria-label={title}
-    className={`p-2 rounded-lg transition-all ${isActive ? 'bg-black text-white shadow-sm' : 'text-on-surface-variant hover:bg-neutral-100 hover:text-black'
-      }`}
+    className={`p-2 rounded-lg transition-all cursor-pointer ${
+      isActive
+        ? 'bg-primary text-on-primary shadow-xs'
+        : 'text-on-surface-variant hover:bg-neutral-100 hover:text-on-surface'
+    }`}
   >
     {children}
   </button>
 );
 
+const ensureHtml = (text: string): string => {
+  if (!text) return '';
+  if (/<[a-z][\s\S]*>/i.test(text)) return text;
+  return text
+    .split(/\r?\n/)
+    .map((line) => (line.trim() ? `<p>${line}</p>` : '<p><br></p>'))
+    .join('');
+};
+
 export const RichTextEditor = ({ value, onChange, placeholder }: RichTextEditorProps) => {
+  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkText, setLinkText] = useState('');
+  const [hasSelection, setHasSelection] = useState(false);
+  const savedRangeRef = useRef<{ from: number; to: number } | null>(null);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
       Placeholder.configure({ placeholder: placeholder || 'Start writing your brilliance...' }),
-      Link.configure({ openOnClick: false }),
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+        defaultProtocol: 'https',
+        HTMLAttributes: {
+          class: 'text-primary underline cursor-pointer hover:text-primary-hover font-semibold',
+          target: '_blank',
+          rel: 'noopener noreferrer',
+        },
+      }),
     ],
-    content: value,
+    content: ensureHtml(value),
     onUpdate: ({ editor: ed }) => {
       onChange(ed.getHTML());
     },
@@ -54,21 +83,84 @@ export const RichTextEditor = ({ value, onChange, placeholder }: RichTextEditorP
 
   useEffect(() => {
     if (editor && editor.getHTML() !== value) {
-      editor.commands.setContent(value);
+      editor.commands.setContent(ensureHtml(value));
     }
   }, [value, editor]);
 
   if (!editor) return null;
 
-  const setLink = () => {
-    const previousUrl = editor.getAttributes('link').href;
-    const url = window.prompt('URL', previousUrl);
-    if (url === null) return;
-    if (url === '') {
-      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+  const handleOpenLinkModal = () => {
+    const { from, to } = editor.state.selection;
+    savedRangeRef.current = { from, to };
+
+    const selectedText = editor.state.doc.textBetween(from, to, ' ');
+    const previousUrl = (editor.getAttributes('link').href as string) || '';
+
+    setLinkUrl(previousUrl);
+    setLinkText(selectedText || '');
+    setHasSelection(from !== to);
+    setIsLinkModalOpen(true);
+  };
+
+  const handleSaveLink = () => {
+    const rawUrl = linkUrl.trim();
+    if (!rawUrl) {
+      handleRemoveLink();
       return;
     }
-    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+
+    let formattedUrl = rawUrl;
+    if (
+      !/^https?:\/\//i.test(formattedUrl) &&
+      !formattedUrl.startsWith('mailto:') &&
+      !formattedUrl.startsWith('tel:')
+    ) {
+      formattedUrl = `https://${formattedUrl}`;
+    }
+
+    const range = savedRangeRef.current;
+
+    if (range && range.from !== range.to) {
+      editor
+        .chain()
+        .focus()
+        .setTextSelection(range)
+        .extendMarkRange('link')
+        .setLink({ href: formattedUrl })
+        .run();
+    } else {
+      const display = linkText.trim() || rawUrl;
+      if (range) {
+        editor.chain().focus().setTextSelection(range.from).run();
+      }
+      editor
+        .chain()
+        .focus()
+        .insertContent(`<a href="${formattedUrl}">${display}</a> `)
+        .run();
+    }
+
+    onChange(editor.getHTML());
+    setIsLinkModalOpen(false);
+  };
+
+  const handleRemoveLink = () => {
+    const range = savedRangeRef.current;
+    if (range) {
+      editor.chain().focus().setTextSelection(range).extendMarkRange('link').unsetLink().run();
+    } else {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+    }
+    onChange(editor.getHTML());
+    setIsLinkModalOpen(false);
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      handleSaveLink();
+    }
   };
 
   return (
@@ -147,9 +239,9 @@ export const RichTextEditor = ({ value, onChange, placeholder }: RichTextEditorP
         <div className="w-px h-5 bg-outline-variant mx-1" />
 
         <MenuButton
-          onClick={setLink}
+          onClick={handleOpenLinkModal}
           isActive={editor.isActive('link')}
-          title="Link"
+          title="Add Link"
         >
           <LinkIcon className="w-4 h-4" />
         </MenuButton>
@@ -171,6 +263,78 @@ export const RichTextEditor = ({ value, onChange, placeholder }: RichTextEditorP
       </div>
 
       <EditorContent editor={editor} />
+
+      {/* Insert / Edit Link Modal (No nested form elements) */}
+      <Modal
+        isOpen={isLinkModalOpen}
+        onClose={() => setIsLinkModalOpen(false)}
+        title={editor.isActive('link') ? 'Edit Link' : 'Insert Link'}
+      >
+        <div className="space-y-4 text-left" onClick={(e) => e.stopPropagation()}>
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-on-surface">
+              Link URL <span className="text-primary">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              autoFocus
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="https://example.com or example.com"
+              className="w-full bg-surface border border-outline-variant px-4 py-2.5 rounded-xl text-sm font-semibold text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            />
+          </div>
+
+          {!hasSelection && (
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-on-surface">
+                Display Text
+              </label>
+              <input
+                type="text"
+                value={linkText}
+                onChange={(e) => setLinkText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="e.g. My Portfolio, Resource Link..."
+                className="w-full bg-surface border border-outline-variant px-4 py-2.5 rounded-xl text-sm font-semibold text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              />
+            </div>
+          )}
+
+          <div className="flex items-center justify-between pt-2">
+            {editor.isActive('link') ? (
+              <button
+                type="button"
+                onClick={handleRemoveLink}
+                className="text-xs font-bold text-red-600 hover:text-red-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Remove Link
+              </button>
+            ) : (
+              <div />
+            )}
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => setIsLinkModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                type="button"
+                onClick={handleSaveLink}
+              >
+                Save Link
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
