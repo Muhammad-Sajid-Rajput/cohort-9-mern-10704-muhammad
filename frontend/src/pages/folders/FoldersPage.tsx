@@ -24,7 +24,7 @@ import {
 import { format } from 'date-fns';
 import type { Folder, Note } from '../../types/api.types';
 
-const FolderCardSkeleton = () => (
+const FolderCardSkeleton = (): ReactElement => (
   <div className="rounded-3xl p-6 border border-outline-variant bg-surface space-y-4">
     <div className="flex items-center gap-3">
       <Skeleton className="w-12 h-12 rounded-2xl" />

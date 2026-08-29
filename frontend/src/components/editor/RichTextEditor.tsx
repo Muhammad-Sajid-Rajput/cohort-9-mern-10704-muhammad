@@ -52,6 +52,7 @@ export const RichTextEditor = ({ value, onChange, placeholder }: RichTextEditorP
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const [linkText, setLinkText] = useState('');
+  const [urlError, setUrlError] = useState('');
   const [hasSelection, setHasSelection] = useState(false);
   const savedRangeRef = useRef<{ from: number; to: number } | null>(null);
 
@@ -83,7 +84,7 @@ export const RichTextEditor = ({ value, onChange, placeholder }: RichTextEditorP
 
   useEffect(() => {
     if (editor && editor.getHTML() !== value) {
-      editor.commands.setContent(ensureHtml(value));
+      editor.commands.setContent(ensureHtml(value), { emitUpdate: false });
     }
   }, [value, editor]);
 
@@ -98,6 +99,7 @@ export const RichTextEditor = ({ value, onChange, placeholder }: RichTextEditorP
 
     setLinkUrl(previousUrl);
     setLinkText(selectedText || '');
+    setUrlError('');
     setHasSelection(from !== to);
     setIsLinkModalOpen(true);
   };
@@ -105,9 +107,10 @@ export const RichTextEditor = ({ value, onChange, placeholder }: RichTextEditorP
   const handleSaveLink = () => {
     const rawUrl = linkUrl.trim();
     if (!rawUrl) {
-      handleRemoveLink();
+      setUrlError('Please enter a valid URL');
       return;
     }
+    setUrlError('');
 
     let formattedUrl = rawUrl;
     if (
@@ -272,27 +275,35 @@ export const RichTextEditor = ({ value, onChange, placeholder }: RichTextEditorP
       >
         <div className="space-y-4 text-left" onClick={(e) => e.stopPropagation()}>
           <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-on-surface">
+            <label htmlFor="link-modal-url" className="block text-xs font-bold text-on-surface">
               Link URL <span className="text-primary">*</span>
             </label>
             <input
+              id="link-modal-url"
               type="text"
               required
               autoFocus
               value={linkUrl}
-              onChange={(e) => setLinkUrl(e.target.value)}
+              onChange={(e) => {
+                setLinkUrl(e.target.value);
+                if (urlError) setUrlError('');
+              }}
               onKeyDown={handleKeyDown}
               placeholder="https://example.com or example.com"
               className="w-full bg-surface border border-outline-variant px-4 py-2.5 rounded-xl text-sm font-semibold text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             />
+            {urlError && (
+              <p className="text-[11px] font-bold text-red-600 mt-1">{urlError}</p>
+            )}
           </div>
 
           {!hasSelection && (
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-on-surface">
+              <label htmlFor="link-modal-text" className="block text-xs font-bold text-on-surface">
                 Display Text
               </label>
               <input
+                id="link-modal-text"
                 type="text"
                 value={linkText}
                 onChange={(e) => setLinkText(e.target.value)}
