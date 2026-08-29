@@ -48,6 +48,22 @@ const ensureHtml = (text: string): string => {
     .join('');
 };
 
+const isValidUrl = (url: string): boolean => {
+  if (!url) return false;
+  if (url.startsWith('mailto:')) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(url.slice(7));
+  }
+  if (url.startsWith('tel:')) {
+    return /^\+?[0-9\s\-().]{3,}$/.test(url.slice(4));
+  }
+  try {
+    const parsed = new URL(url);
+    return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && Boolean(parsed.hostname);
+  } catch {
+    return false;
+  }
+};
+
 export const RichTextEditor = ({ value, onChange, placeholder }: RichTextEditorProps) => {
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
@@ -110,7 +126,6 @@ export const RichTextEditor = ({ value, onChange, placeholder }: RichTextEditorP
       setUrlError('Please enter a valid URL');
       return;
     }
-    setUrlError('');
 
     let formattedUrl = rawUrl;
     if (
@@ -120,6 +135,12 @@ export const RichTextEditor = ({ value, onChange, placeholder }: RichTextEditorP
     ) {
       formattedUrl = `https://${formattedUrl}`;
     }
+
+    if (!isValidUrl(formattedUrl)) {
+      setUrlError('Please enter a valid destination (e.g. example.com, https://example.com, or mailto:user@example.com)');
+      return;
+    }
+    setUrlError('');
 
     const range = savedRangeRef.current;
 
@@ -284,6 +305,8 @@ export const RichTextEditor = ({ value, onChange, placeholder }: RichTextEditorP
               required
               autoFocus
               value={linkUrl}
+              aria-invalid={Boolean(urlError)}
+              aria-describedby={urlError ? 'link-url-error' : undefined}
               onChange={(e) => {
                 setLinkUrl(e.target.value);
                 if (urlError) setUrlError('');
@@ -293,11 +316,13 @@ export const RichTextEditor = ({ value, onChange, placeholder }: RichTextEditorP
               className="w-full bg-surface border border-outline-variant px-4 py-2.5 rounded-xl text-sm font-semibold text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             />
             {urlError && (
-              <p className="text-[11px] font-bold text-red-600 mt-1">{urlError}</p>
+              <p id="link-url-error" role="alert" aria-live="assertive" className="text-[11px] font-bold text-red-600 mt-1">
+                {urlError}
+              </p>
             )}
           </div>
 
-          {!hasSelection && (
+          {!hasSelection && !editor.isActive('link') && (
             <div className="space-y-1.5">
               <label htmlFor="link-modal-text" className="block text-xs font-bold text-on-surface">
                 Display Text
