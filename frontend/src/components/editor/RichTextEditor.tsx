@@ -120,7 +120,7 @@ export const RichTextEditor = ({ value, onChange, placeholder }: RichTextEditorP
 
     const range = savedRangeRef.current;
 
-    if (range && range.from !== range.to) {
+    if (range && (range.from !== range.to || editor.isActive('link'))) {
       editor
         .chain()
         .focus()

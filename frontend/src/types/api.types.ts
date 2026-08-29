@@ -5,6 +5,11 @@ export interface User {
   isEmailVerified: boolean;
 }
 
+export interface BaseResponse {
+  success: boolean;
+  message?: string;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   message?: string;

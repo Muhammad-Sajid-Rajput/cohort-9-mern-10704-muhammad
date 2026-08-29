@@ -181,7 +181,7 @@ export const getAllNotesOf = async (
     const filter: QueryFilter<INote> = { user: toObjectId(userId), isDeleted: { $ne: true } };
 
     if (tag) {
-      filter.tags = tag as unknown as NoteTag[];
+      filter.tags = tag as NoteTag;
     }
 
     if (folder !== undefined) {
@@ -298,7 +298,6 @@ export const augmententRetrival = async (
   try {
     const contextParts: string[] = [];
 
-    // 1. If user is currently viewing a note, inject full active note context
     if (noteId && mongoose.isValidObjectId(noteId)) {
       const activeNote = await Note.findOne({
         _id: toObjectId(noteId),
@@ -312,7 +311,6 @@ export const augmententRetrival = async (
       }
     }
 
-    // 2. Perform vector search or fallback text search
     try {
       const chatMessageEmbed = await getEmbedding(message);
       const relevantChunks = await NoteChunk.aggregate<RelevantChunk>([

@@ -18,7 +18,7 @@ import {
 import { format } from 'date-fns';
 import type { Note, Folder } from '../../types/api.types';
 
-const TrashSkeleton = () => (
+const TrashSkeleton = (): ReactElement => (
   <div className="aspect-square rounded-3xl p-8 border border-outline-variant bg-surface space-y-6">
     <div className="space-y-3">
       <Skeleton className="h-6 w-3/4 rounded-lg" />
@@ -32,16 +32,29 @@ const TrashSkeleton = () => (
   </div>
 );
 
+export interface ExpiryBadge {
+  text: string;
+  className: string;
+}
+
 type TrashFolderItem = Folder & { parentName?: string | null; noteCount?: number };
 
 export const TrashPage = (): ReactElement | null => {
   const { useGetTrash, restore, permanentDelete, emptyTrash } = useNotes();
-  const { data: notesData, isLoading: isNotesLoading, isError, error, refetch: refetchNotes } = useGetTrash();
+  const {
+    data: notesData,
+    isLoading: isNotesLoading,
+    isError: isNotesError,
+    error: notesError,
+    refetch: refetchNotes,
+  } = useGetTrash();
 
   const { useGetTrashFolders, restoreFolder, permanentDeleteFolder } = useFolders();
   const {
     data: foldersData,
     isLoading: isFoldersLoading,
+    isError: isFoldersError,
+    error: foldersError,
     refetch: refetchFolders,
   } = useGetTrashFolders();
 
@@ -50,7 +63,7 @@ export const TrashPage = (): ReactElement | null => {
   const [deleteTargetFolderId, setDeleteTargetFolderId] = useState<string | null>(null);
   const [now] = useState(() => Date.now());
 
-  const getExpiryBadge = (deletedAt?: string | null) => {
+const getExpiryBadge = (deletedAt?: string | null): ExpiryBadge => {
     if (!deletedAt) {
       return { text: 'Expires in 3 days', className: 'bg-amber-50 text-amber-700 border-amber-200' };
     }
@@ -121,11 +134,19 @@ export const TrashPage = (): ReactElement | null => {
     }
   };
 
-  if (isError) {
+  const handleRetryAll = async (): Promise<void> => {
+    await Promise.all([refetchNotes(), refetchFolders()]);
+  };
+
+  if (isNotesError || isFoldersError) {
+    const errorMessage =
+      (notesError instanceof Error ? notesError.message : null) ||
+      (foldersError instanceof Error ? foldersError.message : null) ||
+      'Error fetching trash items';
     return (
       <ErrorView
-        message={error instanceof Error ? error.message : 'Error fetching trash items'}
-        onRetry={refetchNotes}
+        message={errorMessage}
+        onRetry={handleRetryAll}
       />
     );
   }
@@ -137,7 +158,6 @@ export const TrashPage = (): ReactElement | null => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-outline-variant pb-6">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
@@ -152,10 +172,11 @@ export const TrashPage = (): ReactElement | null => {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link to="/notes">
-            <Button variant="secondary" className="flex items-center gap-2 text-xs font-bold">
-              <ArrowLeft className="w-3.5 h-3.5" /> Back to Notes
-            </Button>
+          <Link
+            to="/notes"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-surface border border-outline-variant hover:bg-surface-container transition-colors text-xs font-bold text-on-surface"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Back to Notes
           </Link>
           {totalTrashCount > 0 && (
             <Button
@@ -169,7 +190,6 @@ export const TrashPage = (): ReactElement | null => {
         </div>
       </div>
 
-      {/* Info notice */}
       <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-amber-900 flex items-start sm:items-center gap-3 text-xs font-medium">
         <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
         <p>
@@ -194,15 +214,15 @@ export const TrashPage = (): ReactElement | null => {
               Deleted notes and non-empty folders stay here for 3 days before permanent removal.
             </p>
           </div>
-          <Link to="/notes">
-            <Button variant="primary" className="text-xs font-bold">
-              Return to Workspace
-            </Button>
+          <Link
+            to="/notes"
+            className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs shadow-xs hover:bg-primary/90 transition-colors"
+          >
+            Return to Workspace
           </Link>
         </div>
       ) : (
         <div className="space-y-10">
-          {/* Folders in Trash Section */}
           {trashFolders.length > 0 && (
             <div className="space-y-4">
               <h2 className="text-sm font-extrabold uppercase tracking-wider text-on-surface-variant/80 flex items-center gap-2">

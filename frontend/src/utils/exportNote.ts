@@ -103,30 +103,44 @@ export const formatMultipleNotesText = (notes: Note[]): string => {
 /**
  * Renders a note with structured typographic hierarchy into a jsPDF document.
  */
-export const renderNoteToPdf = (doc: jsPDF, note: Note, isBatch = false): void => {
+export const renderNoteToPdf = (doc: jsPDF, note: Note, isBatch: boolean = false): void => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 16;
   const contentWidth = pageWidth - margin * 2;
   let yOffset = isBatch && doc.getCurrentPageInfo().pageNumber > 1 ? 25 : 20;
 
-  const checkPageBreak = (neededHeight: number): void => {
-    if (yOffset + neededHeight > pageHeight - margin) {
-      doc.addPage();
-      yOffset = 20;
+  const renderWrappedText = (
+    lines: string[],
+    lineHeight: number,
+    xOffset: number = margin,
+    spacingAfter: number = 3,
+  ): void => {
+    for (const line of lines) {
+      if (yOffset + lineHeight > pageHeight - margin) {
+        doc.addPage();
+        yOffset = 20;
+      }
+      doc.text(line, xOffset, yOffset);
+      yOffset += lineHeight;
     }
+    yOffset += spacingAfter;
   };
 
-  // 1. Note Title
-  checkPageBreak(30);
+  if (yOffset + 24 > pageHeight - margin) {
+    doc.addPage();
+    yOffset = 20;
+  }
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(20);
   doc.setTextColor(20, 20, 20);
   const titleLines = doc.splitTextToSize(note.title || 'Untitled Note', contentWidth);
-  doc.text(titleLines, margin, yOffset);
-  yOffset += titleLines.length * 8 + 2;
+  renderWrappedText(titleLines, 8, margin, 2);
 
-  // 2. Metadata (Tags, Date)
+  if (yOffset + 12 > pageHeight - margin) {
+    doc.addPage();
+    yOffset = 20;
+  }
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(110, 110, 110);
@@ -135,13 +149,15 @@ export const renderNoteToPdf = (doc: jsPDF, note: Note, isBatch = false): void =
   doc.text(`Tags: ${tagsStr}  |  Updated: ${dateStr}`, margin, yOffset);
   yOffset += 6;
 
-  // 3. Header Divider line
+  if (yOffset + 10 > pageHeight - margin) {
+    doc.addPage();
+    yOffset = 20;
+  }
   doc.setDrawColor(220, 220, 220);
   doc.setLineWidth(0.5);
   doc.line(margin, yOffset, pageWidth - margin, yOffset);
   yOffset += 10;
 
-  // 4. Parse content structure
   const rawHtml = note.content || note.body || '';
   const parser = new DOMParser();
   const parsedDoc = parser.parseFromString(rawHtml, 'text/html');
@@ -159,9 +175,7 @@ export const renderNoteToPdf = (doc: jsPDF, note: Note, isBatch = false): void =
       doc.setFontSize(10);
       doc.setTextColor(40, 40, 40);
       const wrapped = doc.splitTextToSize(trimmed, contentWidth);
-      checkPageBreak(wrapped.length * 5 + 3);
-      doc.text(wrapped, margin, yOffset);
-      yOffset += wrapped.length * 5 + 3;
+      renderWrappedText(wrapped, 5, margin, 3);
     });
     return;
   }
@@ -172,35 +186,28 @@ export const renderNoteToPdf = (doc: jsPDF, note: Note, isBatch = false): void =
     if (!text && tag !== 'hr') return;
 
     if (tag === 'h1') {
-      checkPageBreak(16);
-      yOffset += 4;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(15);
       doc.setTextColor(20, 20, 20);
       const lines = doc.splitTextToSize(text, contentWidth);
-      doc.text(lines, margin, yOffset);
-      yOffset += lines.length * 6 + 4;
+      renderWrappedText(lines, 6, margin, 4);
     } else if (tag === 'h2') {
-      checkPageBreak(14);
-      yOffset += 3;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(13);
       doc.setTextColor(30, 30, 30);
       const lines = doc.splitTextToSize(text, contentWidth);
-      doc.text(lines, margin, yOffset);
-      yOffset += lines.length * 5.5 + 3;
+      renderWrappedText(lines, 5.5, margin, 3);
     } else if (tag === 'h3' || tag === 'h4' || tag === 'h5' || tag === 'h6') {
-      checkPageBreak(12);
-      yOffset += 2;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
       doc.setTextColor(40, 40, 40);
       const lines = doc.splitTextToSize(text, contentWidth);
-      doc.text(lines, margin, yOffset);
-      yOffset += lines.length * 5 + 2;
+      renderWrappedText(lines, 5, margin, 2);
     } else if (tag === 'hr') {
-      checkPageBreak(8);
-      yOffset += 2;
+      if (yOffset + 8 > pageHeight - margin) {
+        doc.addPage();
+        yOffset = 20;
+      }
       doc.setDrawColor(220, 220, 220);
       doc.setLineWidth(0.5);
       doc.line(margin, yOffset, pageWidth - margin, yOffset);
@@ -215,9 +222,7 @@ export const renderNoteToPdf = (doc: jsPDF, note: Note, isBatch = false): void =
         doc.setFontSize(10);
         doc.setTextColor(40, 40, 40);
         const wrapped = doc.splitTextToSize(`${prefix}${itemText}`, contentWidth - 6);
-        checkPageBreak(wrapped.length * 5 + 2);
-        doc.text(wrapped, margin + 4, yOffset);
-        yOffset += wrapped.length * 5 + 2;
+        renderWrappedText(wrapped, 5, margin + 4, 2);
       });
       yOffset += 3;
     } else if (tag === 'blockquote') {
@@ -225,20 +230,24 @@ export const renderNoteToPdf = (doc: jsPDF, note: Note, isBatch = false): void =
       doc.setFontSize(10);
       doc.setTextColor(80, 80, 80);
       const wrapped = doc.splitTextToSize(text, contentWidth - 10);
-      checkPageBreak(wrapped.length * 5 + 4);
-      doc.setDrawColor(180, 180, 180);
-      doc.setLineWidth(1.5);
-      doc.line(margin, yOffset - 1, margin, yOffset + wrapped.length * 5);
-      doc.text(wrapped, margin + 6, yOffset);
-      yOffset += wrapped.length * 5 + 5;
+      for (const line of wrapped) {
+        if (yOffset + 5 > pageHeight - margin) {
+          doc.addPage();
+          yOffset = 20;
+        }
+        doc.setDrawColor(180, 180, 180);
+        doc.setLineWidth(1.5);
+        doc.line(margin, yOffset - 1, margin, yOffset + 4);
+        doc.text(line, margin + 6, yOffset);
+        yOffset += 5;
+      }
+      yOffset += 5;
     } else {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
       doc.setTextColor(40, 40, 40);
       const wrapped = doc.splitTextToSize(text, contentWidth);
-      checkPageBreak(wrapped.length * 5 + 3);
-      doc.text(wrapped, margin, yOffset);
-      yOffset += wrapped.length * 5 + 3;
+      renderWrappedText(wrapped, 5, margin, 3);
     }
   });
 };

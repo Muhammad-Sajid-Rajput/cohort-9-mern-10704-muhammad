@@ -488,7 +488,15 @@ export const FoldersPage = (): ReactElement | null => {
 
                       <button
                         type="button"
-                        onClick={async () => { if (folderId) { await removeNoteFromFolder({ folderId, noteId: note._id }); await Promise.all([refetchDetails(), refetchAllNotes()]); } }}
+                        onClick={async () => {
+                          if (!folderId) return;
+                          try {
+                            await removeNoteFromFolder({ folderId, noteId: note._id });
+                            await Promise.all([refetchDetails(), refetchAllNotes()]);
+                          } catch {
+                            return;
+                          }
+                        }}
                         className="text-xs font-bold text-on-surface-variant hover:text-red-600 flex items-center gap-1 transition-colors px-2 py-1 rounded-lg hover:bg-red-50"
                         title="Remove note from folder"
                       >
@@ -503,7 +511,6 @@ export const FoldersPage = (): ReactElement | null => {
         </div>
       )}
 
-      {/* Modal 1: Create Folder */}
       <Modal
         isOpen={isCreateModalOpen}
         onClose={() => setCreateModalOpen(false)}
@@ -511,10 +518,11 @@ export const FoldersPage = (): ReactElement | null => {
       >
         <form onSubmit={handleCreateSubmit} className="space-y-5 text-left">
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-on-surface uppercase tracking-wider">
+            <label htmlFor="create-folder-name" className="text-xs font-bold text-on-surface uppercase tracking-wider">
               Folder Name
             </label>
             <input
+              id="create-folder-name"
               type="text"
               required
               autoFocus
@@ -536,7 +544,6 @@ export const FoldersPage = (): ReactElement | null => {
         </form>
       </Modal>
 
-      {/* Modal 2: Rename Folder */}
       <Modal
         isOpen={Boolean(renameTarget)}
         onClose={() => setRenameTarget(null)}
@@ -544,10 +551,11 @@ export const FoldersPage = (): ReactElement | null => {
       >
         <form onSubmit={handleRenameSubmit} className="space-y-5 text-left">
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-on-surface uppercase tracking-wider">
+            <label htmlFor="rename-folder-name" className="text-xs font-bold text-on-surface uppercase tracking-wider">
               New Folder Name
             </label>
             <input
+              id="rename-folder-name"
               type="text"
               required
               autoFocus
@@ -568,7 +576,6 @@ export const FoldersPage = (): ReactElement | null => {
         </form>
       </Modal>
 
-      {/* Modal 3: Delete Folder Confirmation */}
       <Modal
         isOpen={Boolean(deleteTarget)}
         onClose={() => setDeleteTarget(null)}
@@ -589,7 +596,6 @@ export const FoldersPage = (): ReactElement | null => {
         </div>
       </Modal>
 
-      {/* Modal 4: Add Existing Note Popup */}
       <Modal
         isOpen={isAddNoteModalOpen}
         onClose={() => setAddNoteModalOpen(false)}

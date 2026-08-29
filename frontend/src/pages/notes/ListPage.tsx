@@ -442,7 +442,7 @@ export const ListPage = (): ReactElement | null => {
       >
         <div className="space-y-6">
           <p className="text-sm text-on-surface-variant font-medium">
-            This will permanently delete all notes from your workspace. This action cannot be reversed.
+            This will move all notes from your workspace to Trash. They will remain in Trash for 3 days before being permanently deleted.
           </p>
           <div className="flex items-center justify-end gap-3">
             <Button variant="secondary" onClick={() => setClearAllModalOpen(false)}>
@@ -501,10 +501,11 @@ export const ListPage = (): ReactElement | null => {
       >
         <form onSubmit={handleCreateFolderAndAssign} className="space-y-5">
           <div className="space-y-1.5 text-left">
-            <label className="text-xs font-bold text-on-surface uppercase tracking-wider">
+            <label htmlFor="assign-folder-name" className="text-xs font-bold text-on-surface uppercase tracking-wider">
               Folder Name
             </label>
             <input
+              id="assign-folder-name"
               type="text"
               required
               autoFocus

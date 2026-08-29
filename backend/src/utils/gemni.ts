@@ -28,21 +28,9 @@ const getErrorStatus = (error: unknown): number | undefined => {
   if (error instanceof ApiError) {
     return error.status;
   }
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'status' in error &&
-    typeof (error as { status: unknown }).status === 'number'
-  ) {
-    return (error as { status: number }).status;
-  }
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'statusCode' in error &&
-    typeof (error as { statusCode: unknown }).statusCode === 'number'
-  ) {
-    return (error as { statusCode: number }).statusCode;
+  if (error && typeof error === 'object') {
+    if ('status' in error && typeof error.status === 'number') return error.status;
+    if ('statusCode' in error && typeof error.statusCode === 'number') return error.statusCode;
   }
   return undefined;
 };
@@ -84,6 +72,12 @@ export const sendToGemni = async (
       return { reply: response.text ?? 'Here is the relevant information found in your notes.' };
     } catch (e: unknown) {
       clearTimeout(timeoutId);
+
+      if (controller.signal.aborted) {
+        logger.warn(`gemini: model "${model}" timed out (aborted), terminating fallback chain`);
+        lastError = e;
+        break;
+      }
 
       const status = getErrorStatus(e);
       const isPermanentError = status === 400 || status === 401 || status === 403;

@@ -228,20 +228,18 @@ export const ChatBot = (): ReactElement | null => {
                   className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : ''} animate-in fade-in slide-in-from-bottom-2 duration-300`}
                 >
                   <div
-                    className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border transition-all ${
-                      msg.role === 'bot'
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border transition-all ${msg.role === 'bot'
                         ? 'bg-primary text-on-primary border-primary'
                         : 'bg-primary-tint border-primary/20 text-primary'
-                    }`}
+                      }`}
                   >
                     {msg.role === 'bot' ? <Sparkles className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
                   </div>
                   <div
-                    className={`max-w-[88%] px-4 py-3 rounded-2xl text-[13px] font-medium leading-relaxed ${
-                      msg.role === 'bot'
+                    className={`max-w-[88%] px-4 py-3 rounded-2xl text-[13px] font-medium leading-relaxed ${msg.role === 'bot'
                         ? 'bg-white text-on-surface border border-outline-variant shadow-xs'
-                        : 'bg-primary text-on-primary shadow-xs whitespace-pre-wrap break-words'
-                    }`}
+                        : 'bg-primary text-on-primary shadow-xs whitespace-pre-wrap wrap-break-word'
+                      }`}
                   >
                     {msg.role === 'bot' ? (
                       <FormattedBotMessage content={msg.text} />
@@ -282,11 +280,10 @@ export const ChatBot = (): ReactElement | null => {
                 aria-label="Send message"
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading}
-                className={`absolute right-1.5 p-2 rounded-lg transition-all flex items-center justify-center ${
-                  input.trim() && !isLoading
+                className={`absolute right-1.5 p-2 rounded-lg transition-all flex items-center justify-center ${input.trim() && !isLoading
                     ? 'bg-primary text-on-primary shadow-xs hover:brightness-110 cursor-pointer active:scale-95'
                     : 'text-on-surface-variant/30 cursor-not-allowed'
-                }`}
+                  }`}
               >
                 {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </button>
