@@ -50,11 +50,13 @@ const ensureHtml = (text: string): string => {
 
 const isValidUrl = (url: string): boolean => {
   if (!url) return false;
-  if (url.startsWith('mailto:')) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(url.slice(7));
+  if (/^mailto:/i.test(url)) {
+    const email = url.slice(7).trim();
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   }
-  if (url.startsWith('tel:')) {
-    return /^\+?[0-9\s\-().]{3,}$/.test(url.slice(4));
+  if (/^tel:/i.test(url)) {
+    const phone = url.slice(4).trim();
+    return /\d/.test(phone) && /^\+?[0-9\s\-().]{3,}$/.test(phone);
   }
   try {
     const parsed = new URL(url);
@@ -130,8 +132,8 @@ export const RichTextEditor = ({ value, onChange, placeholder }: RichTextEditorP
     let formattedUrl = rawUrl;
     if (
       !/^https?:\/\//i.test(formattedUrl) &&
-      !formattedUrl.startsWith('mailto:') &&
-      !formattedUrl.startsWith('tel:')
+      !/^mailto:/i.test(formattedUrl) &&
+      !/^tel:/i.test(formattedUrl)
     ) {
       formattedUrl = `https://${formattedUrl}`;
     }
