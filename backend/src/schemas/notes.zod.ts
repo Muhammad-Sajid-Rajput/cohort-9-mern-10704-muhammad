@@ -11,6 +11,7 @@ export const noteSchemaValidationBody = z.object({
   title: titleNote,
   body: noteBody,
   tags: z.array(enumTags),
+  folder: z.string().regex(objectIdRegex, 'Invalid folder ID').optional().nullable(),
 });
 
 export const paramsSchema = z.object({
@@ -19,11 +20,12 @@ export const paramsSchema = z.object({
 
 export const notesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional().default(1),
-  limit: z.coerce.number().int().min(1).max(100).optional().default(10),
+  limit: z.coerce.number().int().min(1).max(1000).optional().default(10),
   search: z.string().optional().default(''),
   tag: enumTags.optional(),
 });
 
 export const chatSchema = z.object({
   message: z.string().trim().min(1).max(2000),
+  noteId: z.string().trim().optional().nullable().or(z.literal('')),
 });

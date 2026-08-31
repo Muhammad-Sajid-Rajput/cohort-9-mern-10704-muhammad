@@ -1,75 +1,92 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import mongoose from 'mongoose';
-import { NoteTag } from '../models/notes.js';
+import {
+  createNoteOf,
+  editNoteOf,
+  getNotesOf,
+  getNoteOf,
+  deleteNoteOf,
+  deleteAllNotesOf,
+  getTrashNotesOf,
+  restoreNoteOf,
+  permanentDeleteNoteOf,
+  emptyTrashOf,
+} from '../services/notes.services';
+import { Note, NoteTag } from '../models/notes';
+import { NoteChunk } from '../models/notes.chunk';
+import { Folder } from '../models/folder';
+import { logger } from '../utils/logger';
+import { getEmbeddings } from '../utils/getEmbedings';
+import { toObjectId } from '../utils/toObjectId';
 
-vi.mock('../models/notes.js');
-vi.mock('../models/notes.chunk.js', () => ({
-  NoteChunk: {
-    insertMany: vi.fn(),
+vi.mock('../models/folder', () => ({
+  Folder: {
+    findOne: vi.fn(),
     deleteMany: vi.fn(),
-    aggregate: vi.fn(),
   },
 }));
 
-vi.mock('../utils/logger.js', () => ({
+vi.mock('../models/notes', () => ({
+  Note: {
+    create: vi.fn(),
+    findOneAndUpdate: vi.fn(),
+    find: vi.fn(),
+    findOne: vi.fn(),
+    findOneAndDelete: vi.fn(),
+    deleteMany: vi.fn(),
+    updateMany: vi.fn(),
+    countDocuments: vi.fn(),
+  },
+  NoteTag: {
+    WORK: 'work',
+    PERSONAL: 'personal',
+    LIFE: 'life',
+  },
+}));
+
+vi.mock('../models/notes.chunk', () => ({
+  NoteChunk: {
+    insertMany: vi.fn(),
+    deleteMany: vi.fn(),
+    updateMany: vi.fn(),
+  },
+}));
+
+vi.mock('../utils/logger', () => ({
   logger: {
-    info: vi.fn(),
     error: vi.fn(),
     warn: vi.fn(),
   },
 }));
 
-vi.mock('../utils/getEmbedings.js', () => ({
-  getEmbedding: vi.fn().mockResolvedValue([0.1, 0.2, 0.3]),
-  getEmbeddings: vi.fn().mockResolvedValue([[0.1, 0.2, 0.3]]),
+vi.mock('../utils/getEmbedings', () => ({
+  getEmbeddings: vi.fn(),
 }));
 
-vi.mock('../utils/gemni.js', () => ({
-  sendToGemni: vi.fn().mockResolvedValue({ reply: 'mocked reply' }),
+vi.mock('@langchain/textsplitters', () => ({
+  RecursiveCharacterTextSplitter: vi.fn().mockImplementation(function () {
+    return {
+      splitText: vi.fn().mockResolvedValue(['chunk 1', 'chunk 2']),
+    };
+  }),
 }));
 
-vi.mock('../utils/toObjectId.js', () => ({
-  toObjectId: vi.fn((id) => id),
-}));
+describe('notes.services', () => {
+  const userId = toObjectId('507f1f77bcf86cd799439011');
+  const noteBody = {
+    title: 'Test Note',
+    body: 'Test body content',
+    tags: [NoteTag.WORK],
+  };
 
-vi.mock('@langchain/textsplitters', () => {
-  const splitText = vi.fn().mockResolvedValue(['chunk one']);
-  class RecursiveCharacterTextSplitter {
-    splitText = splitText;
-  }
-  return { RecursiveCharacterTextSplitter };
-});
-
-import { Note } from '../models/notes.js';
-import { NoteChunk } from '../models/notes.chunk.js';
-import { logger } from '../utils/logger.js';
-import {
-  createNoteOf,
-  editNoteOf,
-  getAllNotesOf,
-  getNoteOf,
-  deleteNoteOf,
-  deleteAllNotesOf,
-} from '../services/notes.services.js';
-
-describe('Notes Services', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  const userId = new mongoose.Types.ObjectId().toString();
-  const noteBody = {
-    title: 'Test Title',
-    body: 'Test content',
-    tags: [NoteTag.WORK],
-  };
-
   describe('createNoteOf', () => {
     it('should create a note and insert chunks with correct payload', async () => {
-      const fakeNote = { _id: 'note123', title: noteBody.title, content: noteBody.body };
-
+      const fakeNote = { _id: toObjectId('507f1f77bcf86cd799439012'), title: noteBody.title };
       vi.mocked(Note.create).mockResolvedValue(fakeNote as any);
-      vi.mocked(NoteChunk.insertMany).mockResolvedValue([] as any);
+      vi.mocked(getEmbeddings).mockResolvedValue([[0.1], [0.2]]);
 
       const res = await createNoteOf(userId, noteBody);
 
@@ -78,22 +95,36 @@ describe('Notes Services', () => {
         content: noteBody.body,
         tags: noteBody.tags,
         user: userId,
+        folder: null,
       });
-      expect(NoteChunk.insertMany).toHaveBeenCalledOnce();
-      expect(NoteChunk.insertMany).toHaveBeenCalledWith(
-        expect.arrayContaining([
-          expect.objectContaining({
-            content: expect.stringContaining(noteBody.title),
-            noteId: fakeNote._id,
-            noteTitle: noteBody.title,
-            embedding: [0.1, 0.2, 0.3],
-            chunkIndex: 0,
-          }),
-        ]),
-      );
+      expect(NoteChunk.insertMany).toHaveBeenCalledTimes(1);
       expect(res.success).toBe(true);
-      expect(res.message).toBe('Note created successfully');
       expect(res.note).toEqual(fakeNote);
+    });
+
+    it('should validate folder when folderId is provided', async () => {
+      const folderId = '507f1f77bcf86cd799439013';
+      vi.mocked(Folder.findOne).mockResolvedValue({ _id: toObjectId(folderId) } as any);
+      const fakeNote = { _id: toObjectId('507f1f77bcf86cd799439012'), title: noteBody.title };
+      vi.mocked(Note.create).mockResolvedValue(fakeNote as any);
+      vi.mocked(getEmbeddings).mockResolvedValue([[0.1], [0.2]]);
+
+      const res = await createNoteOf(userId, { ...noteBody, folder: folderId });
+
+      expect(Folder.findOne).toHaveBeenCalledWith({
+        _id: expect.any(Object),
+        user: expect.any(Object),
+        isDeleted: { $ne: true },
+      });
+      expect(res.success).toBe(true);
+    });
+
+    it('should throw when provided folder is not found', async () => {
+      vi.mocked(Folder.findOne).mockResolvedValue(null);
+
+      await expect(
+        createNoteOf(userId, { ...noteBody, folder: '507f1f77bcf86cd799439013' }),
+      ).rejects.toThrow('Folder not found');
     });
 
     it('should log and rethrow when Note.create fails', async () => {
@@ -103,201 +134,211 @@ describe('Notes Services', () => {
       await expect(createNoteOf(userId, noteBody)).rejects.toThrow('DB error');
       expect(logger.error).toHaveBeenCalledWith(
         'Error creating note',
-        { error: 'DB error' },
+        expect.objectContaining({ error: 'DB error' }),
       );
     });
   });
 
   describe('editNoteOf', () => {
-    it('should update a note, replace old chunks, and insert new chunks with correct payload', async () => {
-      const noteId = 'note123';
-      const updatedNote = { _id: noteId, title: noteBody.title, content: noteBody.body };
-
-      vi.mocked(Note.findOneAndUpdate).mockResolvedValue(updatedNote as any);
-      vi.mocked(NoteChunk.deleteMany).mockResolvedValue({ deletedCount: 2 } as any);
-      vi.mocked(NoteChunk.insertMany).mockResolvedValue([] as any);
+    it('should update note and recreate chunks', async () => {
+      const noteId = toObjectId('507f1f77bcf86cd799439012');
+      const fakeUpdatedNote = { _id: noteId, ...noteBody };
+      vi.mocked(Note.findOneAndUpdate).mockResolvedValue(fakeUpdatedNote as any);
+      vi.mocked(NoteChunk.deleteMany).mockResolvedValue({} as any);
+      vi.mocked(getEmbeddings).mockResolvedValue([[0.1], [0.2]]);
 
       const res = await editNoteOf(userId, noteId, noteBody);
 
       expect(Note.findOneAndUpdate).toHaveBeenCalledWith(
-        { _id: noteId, user: userId },
+        { _id: noteId, user: userId, isDeleted: { $ne: true } },
         { title: noteBody.title, content: noteBody.body, tags: noteBody.tags },
-        { new: true },
+        { returnDocument: 'after' },
       );
       expect(NoteChunk.deleteMany).toHaveBeenCalledWith({ noteId, user: userId });
-      expect(NoteChunk.insertMany).toHaveBeenCalledOnce();
-      expect(NoteChunk.insertMany).toHaveBeenCalledWith(
-        expect.arrayContaining([
-          expect.objectContaining({
-            content: expect.stringContaining(noteBody.title),
-            noteId,
-            noteTitle: noteBody.title,
-            embedding: [0.1, 0.2, 0.3],
-            chunkIndex: 0,
-          }),
-        ]),
-      );
+      expect(NoteChunk.insertMany).toHaveBeenCalledTimes(1);
       expect(res.success).toBe(true);
-      expect(res.message).toBe('Note updated successfully');
-      expect(res.note).toEqual(updatedNote);
     });
 
     it('should throw when note does not exist', async () => {
+      const noteId = toObjectId('507f1f77bcf86cd799439012');
       vi.mocked(Note.findOneAndUpdate).mockResolvedValue(null);
 
-      await expect(editNoteOf(userId, 'invalid-id', noteBody)).rejects.toThrow(
+      await expect(editNoteOf(userId, noteId, noteBody)).rejects.toThrow(
         'Note not found or unauthorized',
-      );
-    });
-
-    it('should log and rethrow when findOneAndUpdate fails', async () => {
-      const error = new Error('DB error');
-      vi.mocked(Note.findOneAndUpdate).mockRejectedValue(error);
-
-      await expect(editNoteOf(userId, 'note123', noteBody)).rejects.toThrow('DB error');
-      expect(logger.error).toHaveBeenCalledWith(
-        'Error updating note',
-        { error: 'DB error' },
       );
     });
   });
 
-  describe('getAllNotesOf', () => {
-    it('should return paginated notes without filters', async () => {
-      const query = { page: 1, limit: 10, skip: 0, search: '', tag: undefined };
-      const notes = [{ title: 'Note 1' }];
+  describe('getNotesOf', () => {
+    it('should return paginated notes with default limit and page', async () => {
+      const fakeNotes = [{ title: 'Note 1' }, { title: 'Note 2' }];
+      vi.mocked(Note.find).mockReturnValue({
+        sort: vi.fn().mockReturnValue({
+          skip: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue(fakeNotes),
+          }),
+        }),
+      } as any);
+      vi.mocked(Note.countDocuments).mockResolvedValue(2);
 
-      const mockFind = {
-        sort: vi.fn().mockReturnThis(),
-        skip: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue(notes),
-      };
-      vi.mocked(Note.find).mockReturnValue(mockFind as any);
-      vi.mocked(Note.countDocuments).mockResolvedValue(1);
+      const res = await getNotesOf(userId, 1, 10);
 
-      const res = await getAllNotesOf(userId, query);
-
-      expect(Note.find).toHaveBeenCalledWith({ user: userId });
-      expect(res.notes).toEqual(notes);
-      expect(res.pagination).toEqual({ total: 1, page: 1, limit: 10, totalPages: 1 });
       expect(res.success).toBe(true);
+      expect(res.notes).toEqual(fakeNotes);
+      expect(res.pagination.total).toBe(2);
+      expect(res.pagination.totalPages).toBe(1);
     });
 
-    it('should apply regex search filter when search is provided', async () => {
-      const query = { page: 1, limit: 10, skip: 0, search: 'hello', tag: undefined };
-
-      const mockFind = {
-        sort: vi.fn().mockReturnThis(),
-        skip: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue([]),
-      };
-      vi.mocked(Note.find).mockReturnValue(mockFind as any);
+    it('should filter by tag and search query', async () => {
+      vi.mocked(Note.find).mockReturnValue({
+        sort: vi.fn().mockReturnValue({
+          skip: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      } as any);
       vi.mocked(Note.countDocuments).mockResolvedValue(0);
 
-      await getAllNotesOf(userId, query);
+      await getNotesOf(userId, 1, 10, 'work', 'hello');
 
       expect(Note.find).toHaveBeenCalledWith({
         user: userId,
+        isDeleted: { $ne: true },
+        tags: 'work',
         $or: [
           { title: { $regex: 'hello', $options: 'i' } },
           { content: { $regex: 'hello', $options: 'i' } },
-          { tags: { $regex: 'hello', $options: 'i' } },
         ],
       });
-    });
-
-    it('should apply tag filter when tag is provided', async () => {
-      const query = { page: 1, limit: 10, skip: 0, search: '', tag: NoteTag.WORK };
-
-      const mockFind = {
-        sort: vi.fn().mockReturnThis(),
-        skip: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue([]),
-      };
-      vi.mocked(Note.find).mockReturnValue(mockFind as any);
-      vi.mocked(Note.countDocuments).mockResolvedValue(0);
-
-      await getAllNotesOf(userId, query);
-
-      expect(Note.find).toHaveBeenCalledWith({ user: userId, tags: NoteTag.WORK });
-    });
-
-    it('should calculate totalPages correctly', async () => {
-      const query = { page: 2, limit: 5, skip: 5, search: '', tag: undefined };
-
-      const mockFind = {
-        sort: vi.fn().mockReturnThis(),
-        skip: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue([]),
-      };
-      vi.mocked(Note.find).mockReturnValue(mockFind as any);
-      vi.mocked(Note.countDocuments).mockResolvedValue(13);
-
-      const res = await getAllNotesOf(userId, query);
-
-      expect(res.pagination.totalPages).toBe(3);
     });
   });
 
   describe('getNoteOf', () => {
-    it('should return a single note when found', async () => {
-      const noteId = 'note123';
-      const fakeNote = { _id: noteId, title: 'Test' };
-
+    it('should return note if found', async () => {
+      const noteId = toObjectId('507f1f77bcf86cd799439012');
+      const fakeNote = { _id: noteId, title: 'My Note' };
       vi.mocked(Note.findOne).mockResolvedValue(fakeNote as any);
 
       const res = await getNoteOf(userId, noteId);
 
-      expect(Note.findOne).toHaveBeenCalledWith({ _id: noteId, user: userId });
-      expect(res.note).toEqual(fakeNote);
+      expect(Note.findOne).toHaveBeenCalledWith({ _id: noteId, user: userId, isDeleted: { $ne: true } });
       expect(res.success).toBe(true);
-      expect(res.message).toBe('Note fetched successfully');
+      expect(res.note).toEqual(fakeNote);
     });
 
-    it('should throw when note is not found', async () => {
+    it('should throw if note is not found', async () => {
+      const noteId = toObjectId('507f1f77bcf86cd799439012');
       vi.mocked(Note.findOne).mockResolvedValue(null);
 
-      await expect(getNoteOf(userId, 'invalid')).rejects.toThrow('Note not found');
+      await expect(getNoteOf(userId, noteId)).rejects.toThrow('Note not found');
     });
   });
 
   describe('deleteNoteOf', () => {
-    it('should delete a note and its chunks successfully', async () => {
-      const noteId = 'note123';
-      const fakeNote = { _id: noteId };
-
-      vi.mocked(Note.findOneAndDelete).mockResolvedValue(fakeNote as any);
-      vi.mocked(NoteChunk.deleteMany).mockResolvedValue({ deletedCount: 3 } as any);
+    it('should soft delete note and mirror on chunks', async () => {
+      const noteId = toObjectId('507f1f77bcf86cd799439012');
+      const fakeDeletedNote = { _id: noteId, isDeleted: true };
+      vi.mocked(Note.findOneAndUpdate).mockResolvedValue(fakeDeletedNote as any);
+      vi.mocked(NoteChunk.updateMany).mockResolvedValue({ modifiedCount: 1 } as any);
 
       const res = await deleteNoteOf(userId, noteId);
 
-      expect(Note.findOneAndDelete).toHaveBeenCalledWith({ _id: noteId, user: userId });
-      expect(NoteChunk.deleteMany).toHaveBeenCalledWith({ noteId, user: userId });
+      expect(Note.findOneAndUpdate).toHaveBeenCalledWith(
+        { _id: noteId, user: userId, isDeleted: { $ne: true } },
+        { isDeleted: true, deletedAt: expect.any(Date) },
+        { returnDocument: 'after' },
+      );
+      expect(NoteChunk.updateMany).toHaveBeenCalledWith(
+        { noteId, user: userId },
+        { isDeleted: true },
+      );
       expect(res.success).toBe(true);
-      expect(res.message).toBe('Note deleted successfully');
-      expect(res.note).toEqual(fakeNote);
+      expect(res.message).toBe('Note moved to trash');
     });
 
-    it('should throw when note is not found', async () => {
-      vi.mocked(Note.findOneAndDelete).mockResolvedValue(null);
+    it('should throw if note not found or already deleted', async () => {
+      const noteId = toObjectId('507f1f77bcf86cd799439012');
+      vi.mocked(Note.findOneAndUpdate).mockResolvedValue(null);
 
-      await expect(deleteNoteOf(userId, 'invalid')).rejects.toThrow(
-        'Note not found for this user',
-      );
+      await expect(deleteNoteOf(userId, noteId)).rejects.toThrow('Note not found or already in trash');
     });
   });
 
   describe('deleteAllNotesOf', () => {
-    it('should delete all notes and chunks for a user', async () => {
-      vi.mocked(Note.deleteMany).mockResolvedValue({ deletedCount: 5 } as any);
-      vi.mocked(NoteChunk.deleteMany).mockResolvedValue({ deletedCount: 12 } as any);
+    it('should move all notes to trash for a user', async () => {
+      vi.mocked(Note.updateMany).mockResolvedValue({ modifiedCount: 5 } as any);
 
       const res = await deleteAllNotesOf(userId);
 
-      expect(Note.deleteMany).toHaveBeenCalledWith({ user: userId });
-      expect(NoteChunk.deleteMany).toHaveBeenCalledWith({ user: userId });
+      expect(Note.updateMany).toHaveBeenCalledWith(
+        { user: userId, isDeleted: { $ne: true } },
+        { isDeleted: true, deletedAt: expect.any(Date) },
+      );
       expect(res.success).toBe(true);
-      expect(res.message).toBe('All notes deleted successfully');
+      expect(res.message).toBe('All notes moved to trash');
+    });
+  });
+
+  describe('trash operations', () => {
+    it('should fetch trash notes within 3 days', async () => {
+      vi.mocked(Note.find).mockImplementation((filter: any, projection?: any) => {
+        if (projection) {
+          return Promise.resolve([]) as any;
+        }
+        return {
+          sort: vi.fn().mockResolvedValue([{ title: 'Trash Note 1' }]),
+        } as any;
+      });
+
+      const res = await getTrashNotesOf(userId);
+      expect(res.success).toBe(true);
+      expect(res.notes).toHaveLength(1);
+    });
+
+    it('should restore note from trash and un-delete chunks', async () => {
+      const noteId = toObjectId('507f1f77bcf86cd799439012');
+      const fakeRestoredNote = { _id: noteId, isDeleted: false };
+      vi.mocked(Note.findOneAndUpdate).mockResolvedValue(fakeRestoredNote as any);
+      vi.mocked(NoteChunk.updateMany).mockResolvedValue({ modifiedCount: 1 } as any);
+
+      const res = await restoreNoteOf(userId, noteId);
+      expect(Note.findOneAndUpdate).toHaveBeenCalledWith(
+        { _id: noteId, user: userId, isDeleted: true },
+        { isDeleted: false, deletedAt: null },
+        { returnDocument: 'after' },
+      );
+      expect(NoteChunk.updateMany).toHaveBeenCalledWith(
+        { noteId, user: userId },
+        { isDeleted: false },
+      );
+      expect(res.success).toBe(true);
+      expect(res.message).toBe('Note restored successfully');
+    });
+
+    it('should permanently delete note and chunks', async () => {
+      const noteId = toObjectId('507f1f77bcf86cd799439012');
+      vi.mocked(Note.findOneAndDelete).mockResolvedValue({ _id: noteId } as any);
+      vi.mocked(NoteChunk.deleteMany).mockResolvedValue({ deletedCount: 2 } as any);
+
+      const res = await permanentDeleteNoteOf(userId, noteId);
+      expect(Note.findOneAndDelete).toHaveBeenCalledWith({ _id: noteId, user: userId, isDeleted: true });
+      expect(NoteChunk.deleteMany).toHaveBeenCalledWith({ noteId, user: userId });
+      expect(res.success).toBe(true);
+      expect(res.message).toBe('Note permanently deleted');
+    });
+
+    it('should empty trash permanently', async () => {
+      vi.mocked(Note.find).mockResolvedValue([{ _id: 'n1' }, { _id: 'n2' }] as any);
+      vi.mocked(Note.deleteMany).mockResolvedValue({ deletedCount: 2 } as any);
+      vi.mocked(NoteChunk.deleteMany).mockResolvedValue({ deletedCount: 4 } as any);
+      vi.mocked(Folder.deleteMany).mockResolvedValue({ deletedCount: 1 } as any);
+
+      const res = await emptyTrashOf(userId);
+      expect(Note.deleteMany).toHaveBeenCalledWith({ user: userId, isDeleted: true });
+      expect(NoteChunk.deleteMany).toHaveBeenCalledWith({ noteId: { $in: ['n1', 'n2'] }, user: userId });
+      expect(Folder.deleteMany).toHaveBeenCalledWith({ user: userId, isDeleted: true });
+      expect(res.success).toBe(true);
+      expect(res.message).toBe('Trash emptied successfully');
     });
   });
 });

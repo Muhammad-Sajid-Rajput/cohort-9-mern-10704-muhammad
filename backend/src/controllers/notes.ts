@@ -9,6 +9,10 @@ import {
   editNoteOf,
   getAllNotesOf,
   getNoteOf,
+  getTrashNotesOf,
+  restoreNoteOf,
+  permanentDeleteNoteOf,
+  emptyTrashOf,
 } from '../services/notes.services';
 import { HTTPSTATUS } from '../utils/enums';
 import { UnauthorizedAccess } from '../utils/appError';
@@ -119,5 +123,44 @@ export const chat = asyncHandler(
       success: result?.success,
       reply: result?.reply,
     });
+  },
+);
+
+
+export const getTrashNotes = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?._id;
+    if (!userId) throw new UnauthorizedAccess('User not authenticated');
+    const result = await getTrashNotesOf(userId);
+    return res.status(HTTPSTATUS.OK).json(result);
+  },
+);
+
+export const restoreNote = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?._id;
+    if (!userId) throw new UnauthorizedAccess('User not authenticated');
+    const { noteId } = paramsSchema.parse(req.params);
+    const result = await restoreNoteOf(userId, toObjectId(noteId));
+    return res.status(HTTPSTATUS.OK).json(result);
+  },
+);
+
+export const permanentDeleteNote = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?._id;
+    if (!userId) throw new UnauthorizedAccess('User not authenticated');
+    const { noteId } = paramsSchema.parse(req.params);
+    const result = await permanentDeleteNoteOf(userId, toObjectId(noteId));
+    return res.status(HTTPSTATUS.OK).json(result);
+  },
+);
+
+export const emptyTrash = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?._id;
+    if (!userId) throw new UnauthorizedAccess('User not authenticated');
+    const result = await emptyTrashOf(userId);
+    return res.status(HTTPSTATUS.OK).json(result);
   },
 );
