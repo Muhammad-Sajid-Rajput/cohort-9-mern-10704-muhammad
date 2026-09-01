@@ -11,9 +11,23 @@ export const API_CONSTANTS = {
 		ME: '/auth/me',
 		DELETE_USER: '/auth/deleteUser',
 	},
+	FOLDERS: {
+		BASE: '/folders',
+		ALL: '/folders/all',
+		TRASH: '/folders/trash',
+		RESTORE_TRASH: (id: string) => `/folders/trash/${id}/restore`,
+		PERMANENT_DELETE_TRASH: (id: string) => `/folders/trash/${id}`,
+		BY_ID: (id: string) => `/folders/${id}`,
+		NOTES: (folderId: string) => `/folders/${folderId}/notes`,
+		REMOVE_NOTE: (folderId: string, noteId: string) => `/folders/${folderId}/notes/${noteId}`,
+	},
 	NOTES: {
 		BASE: '/notes',
 		BY_ID: (id: string) => `/notes/${id}`,
 		CHAT: '/notes/chat',
+		TRASH: '/notes/trash',
+		RESTORE: (id: string) => `/notes/trash/${id}/restore`,
+		PERMANENT_DELETE: (id: string) => `/notes/trash/${id}`,
+		EMPTY_TRASH: '/notes/trash',
 	},
 } as const;

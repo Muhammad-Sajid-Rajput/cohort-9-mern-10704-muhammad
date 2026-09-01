@@ -253,8 +253,8 @@ describe('folder.services', () => {
   });
 
   describe('permanentDeleteFolderOf', () => {
-    it('should permanently delete folder, subfolders, notes, and chunks in bulk', async () => {
-      const fakeFolder = { _id: folderId, user: userId };
+    it('should permanently delete folder, subfolders, notes, and chunks in bulk when in trash', async () => {
+      const fakeFolder = { _id: folderId, user: userId, isDeleted: true };
       vi.mocked(Folder.findOne).mockResolvedValue(fakeFolder as any);
       vi.mocked(Folder.find)
         .mockResolvedValueOnce([{ _id: subfolderId }] as any) // subfolders
@@ -265,10 +265,21 @@ describe('folder.services', () => {
       vi.mocked(Folder.deleteMany).mockResolvedValue({ deletedCount: 2 } as any);
 
       const res = await permanentDeleteFolderOf(userId, folderId);
+      expect(Folder.findOne).toHaveBeenCalledWith({
+        _id: folderId,
+        user: userId,
+        isDeleted: true,
+      });
       expect(NoteChunk.deleteMany).toHaveBeenCalledWith({ noteId: { $in: [noteId] } });
       expect(Note.deleteMany).toHaveBeenCalledWith({ _id: { $in: [noteId] }, user: userId });
       expect(Folder.deleteMany).toHaveBeenCalledWith({ _id: { $in: [folderId, subfolderId] }, user: userId });
       expect(res.success).toBe(true);
+    });
+
+    it('should throw when the folder is not in Trash', async () => {
+      vi.mocked(Folder.findOne).mockResolvedValue(null);
+      await expect(permanentDeleteFolderOf(userId, folderId)).rejects.toThrow();
+      expect(Folder.deleteMany).not.toHaveBeenCalled();
     });
   });
 

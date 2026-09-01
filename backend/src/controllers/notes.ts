@@ -117,15 +117,14 @@ export const chat = asyncHandler(
   async (req: Request, res: Response) => {
     const userId = req.user?._id;
     if (!userId) throw new UnauthorizedAccess('User not authenticated');
-    const { message } = chatSchema.parse(req.body);
-    const result = await augmententRetrival(message, toObjectId(userId));
+    const { message, noteId } = chatSchema.parse(req.body);
+    const result = await augmententRetrival(message, toObjectId(userId), noteId || undefined);
     return res.status(HTTPSTATUS.OK).json({
       success: result?.success,
       reply: result?.reply,
     });
   },
 );
-
 
 export const getTrashNotes = asyncHandler(
   async (req: Request, res: Response) => {

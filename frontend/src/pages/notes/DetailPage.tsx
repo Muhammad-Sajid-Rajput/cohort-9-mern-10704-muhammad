@@ -6,9 +6,12 @@ import { ErrorView } from '../../components/ui/ErrorView';
 import { RichTextDisplay } from '../../components/editor/RichTextDisplay';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { ChevronLeft, Edit3, Trash2 } from 'lucide-react';
+import { ChevronLeft, Edit3, Trash2, Download, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { useState, type ReactElement } from 'react';
+import { uiActions } from '../../utils/uiActions';
+import { formatSingleNoteText, renderNoteToPdf } from '../../utils/exportNote';
+import jsPDF from 'jspdf';
 
 export const DetailPage = (): ReactElement | null => {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +19,7 @@ export const DetailPage = (): ReactElement | null => {
   const { useGetById, delete: deleteNote } = useNotes();
   const { data, isLoading, isError, error, refetch } = useGetById(id || '');
   const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isExportModalOpen, setExportModalOpen] = useState(false);
 
   if (isLoading) return <Spinner />;
   if (isError) return <ErrorView message={error instanceof Error ? error.message : 'Failed to load note'} onRetry={refetch} />;
@@ -27,9 +31,43 @@ export const DetailPage = (): ReactElement | null => {
     if (!id) return;
     try {
       await deleteNote(id);
+      setDeleteModalOpen(false);
       navigate('/notes');
     } catch {
       return;
+    }
+  };
+
+  const handleExportTXT = (): void => {
+    try {
+      const textContent = formatSingleNoteText(note);
+      const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const safeFilename = (note.title || 'untitled').replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
+      link.download = `${safeFilename}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setExportModalOpen(false);
+      uiActions.success('Exported note as TXT.');
+    } catch {
+      uiActions.error('Failed to export TXT.');
+    }
+  };
+
+  const handleExportPDF = (): void => {
+    try {
+      const doc = new jsPDF();
+      renderNoteToPdf(doc, note);
+      const safeFilename = (note.title || 'untitled').replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
+      doc.save(`${safeFilename}.pdf`);
+      uiActions.success('Exported note as PDF.');
+      setExportModalOpen(false);
+    } catch {
+      uiActions.error('Failed to generate PDF.');
     }
   };
 
@@ -62,18 +100,29 @@ export const DetailPage = (): ReactElement | null => {
       </div>
 
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          {note.tags?.map((tag) => (
-            <span
-              key={tag}
-              className="text-[11px] font-extrabold uppercase tracking-wider px-3 py-1 bg-surface-container border border-outline-variant rounded-full text-on-surface"
-            >
-              {tag}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {note.tags?.map((tag) => (
+              <span
+                key={tag}
+                className="text-[11px] font-extrabold uppercase tracking-wider px-3 py-1 bg-surface-container border border-outline-variant rounded-full text-on-surface"
+              >
+                {tag}
+              </span>
+            ))}
+            <span className="text-xs text-on-surface-variant font-medium ml-2">
+              Updated {note.updatedAt ? format(new Date(note.updatedAt), 'MMM dd, yyyy') : 'Recently'}
             </span>
-          ))}
-          <span className="text-xs text-on-surface-variant font-medium ml-2">
-            Updated {note.updatedAt ? format(new Date(note.updatedAt), 'MMM dd, yyyy') : 'Recently'}
-          </span>
+          </div>
+
+          <Button
+            variant="secondary"
+            onClick={() => setExportModalOpen(true)}
+            className="flex items-center gap-2 text-xs font-bold px-3 py-1.5"
+            title="Export this note"
+          >
+            <Download className="w-3.5 h-3.5" /> Export Note
+          </Button>
         </div>
 
         <h1 className="text-3xl sm:text-4xl font-extrabold text-on-surface tracking-tight leading-tight">
@@ -115,18 +164,64 @@ export const DetailPage = (): ReactElement | null => {
       <Modal
         isOpen={isDeleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
-        title="Delete this note?"
+        title="Move to Trash?"
       >
         <div className="space-y-6">
           <p className="text-sm text-on-surface-variant font-medium">
-            This action cannot be undone. Are you sure you want to permanently delete this note?
+            Are you sure you want to move &quot;{note.title}&quot; to Trash? It will remain in Trash for 3 days before being permanently deleted.
           </p>
           <div className="flex items-center justify-end gap-3">
             <Button variant="secondary" onClick={() => setDeleteModalOpen(false)}>
               Cancel
             </Button>
             <Button variant="danger" onClick={handleDelete}>
-              Confirm Delete
+              Move to Trash
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isExportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title={`Export "${note.title}"`}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-on-surface-variant font-medium">
+            Choose your preferred export format for this note.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+            <button
+              type="button"
+              onClick={handleExportTXT}
+              className="flex items-center gap-3 p-4 rounded-2xl border border-outline-variant hover:border-primary/50 hover:bg-neutral-50 transition-all text-left group"
+            >
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-on-surface">Plain Text (.txt)</p>
+                <p className="text-xs text-on-surface-variant">Simple text document</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportPDF}
+              className="flex items-center gap-3 p-4 rounded-2xl border border-outline-variant hover:border-primary/50 hover:bg-neutral-50 transition-all text-left group"
+            >
+              <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Download className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-on-surface">PDF Document (.pdf)</p>
+                <p className="text-xs text-on-surface-variant">Formatted visual layout</p>
+              </div>
+            </button>
+          </div>
+          <div className="flex justify-end pt-2">
+            <Button variant="secondary" onClick={() => setExportModalOpen(false)}>
+              Cancel
             </Button>
           </div>
         </div>

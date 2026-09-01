@@ -19,6 +19,12 @@ export const useNotes = (params?: NoteQueryParams) => {
     enabled: !!id,
   });
 
+  const useGetTrash = () => useQuery({
+    queryKey: ['notes', 'trash'],
+    queryFn: () => notesApi.getTrash(),
+    staleTime: 0,
+  });
+
   const mutationOptions = (msg: string, invalidate = true) => ({
     onSuccess: () => {
       uiActions.success(msg);
@@ -44,26 +50,68 @@ export const useNotes = (params?: NoteQueryParams) => {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => notesApi.delete(id),
-    ...mutationOptions('Note permanently removed.'),
+    onSuccess: () => {
+      uiActions.success('Note moved to trash.');
+      queryClient.invalidateQueries({ queryKey: ['notes'] });
+      queryClient.invalidateQueries({ queryKey: ['notes', 'trash'] });
+    },
+    onError: uiActions.error,
   });
 
   const deleteAllMutation = useMutation({
     mutationFn: () => notesApi.deleteAll(),
-    ...mutationOptions('Your workspace has been cleared.'),
+    onSuccess: () => {
+      uiActions.success('All notes moved to trash.');
+      queryClient.invalidateQueries({ queryKey: ['notes'] });
+      queryClient.invalidateQueries({ queryKey: ['notes', 'trash'] });
+    },
+    onError: uiActions.error,
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: (id: string) => notesApi.restore(id),
+    onSuccess: () => {
+      uiActions.success('Note restored to workspace.');
+      queryClient.invalidateQueries({ queryKey: ['notes'] });
+      queryClient.invalidateQueries({ queryKey: ['notes', 'trash'] });
+    },
+    onError: uiActions.error,
+  });
+
+  const permanentDeleteMutation = useMutation({
+    mutationFn: (id: string) => notesApi.permanentDelete(id),
+    onSuccess: () => {
+      uiActions.success('Note permanently deleted.');
+      queryClient.invalidateQueries({ queryKey: ['notes', 'trash'] });
+    },
+    onError: uiActions.error,
+  });
+
+  const emptyTrashMutation = useMutation({
+    mutationFn: () => notesApi.emptyTrash(),
+    onSuccess: () => {
+      uiActions.success('Trash emptied successfully.');
+      queryClient.invalidateQueries({ queryKey: ['notes', 'trash'] });
+    },
+    onError: uiActions.error,
   });
 
   const chatMutation = useMutation({
-    mutationFn: (data: { message: string }) => notesApi.chat(data),
+    mutationFn: (data: { message: string; noteId?: string | null }) => notesApi.chat(data),
     onError: uiActions.error,
   });
 
   return {
     useGetAll,
     useGetById,
+    useGetTrash,
     create: createMutation.mutateAsync,
     update: updateMutation.mutateAsync,
     delete: deleteMutation.mutateAsync,
     deleteAll: deleteAllMutation.mutateAsync,
+    restore: restoreMutation.mutateAsync,
+    permanentDelete: permanentDeleteMutation.mutateAsync,
+    emptyTrash: emptyTrashMutation.mutateAsync,
     chat: chatMutation.mutateAsync,
   };
 };

@@ -1,32 +1,16 @@
-import { z } from 'zod';
 import { useState, useEffect, type ReactElement } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useNotes } from '../../hooks/useNotes';
+import { useFolders } from '../../hooks/useFolders';
 import { ErrorView } from '../../components/ui/ErrorView';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Skeleton } from '../../components/ui/Skeleton';
-import { Plus, Trash2, Search, Edit3, ChevronLeft, ChevronRight, Download, Upload, FileJson, FileText, File as FileIcon } from 'lucide-react';
-import { jsPDF } from 'jspdf';
+import { Plus, Trash2, Search, Edit3, ChevronLeft, ChevronRight, Upload, File as FileIcon, MoreVertical, FolderPlus, Folder as FolderIcon } from 'lucide-react';
 import { notesApi } from '../../api/notes.api';
 import { uiActions } from '../../utils/uiActions';
 import { format } from 'date-fns';
 import type { Note } from '../../types/api.types';
-
-const importedNoteSchema = z.object({
-  title: z.string().min(1),
-  content: z.string().optional(),
-  body: z.string().optional(),
-  tags: z.array(z.enum(['work', 'personal', 'life'])).optional(),
-}).refine((n) => Boolean(n.content || n.body), {
-  message: 'Each note requires title and content or body text.',
-});
-
-const importSchema = z.union([
-  z.array(importedNoteSchema),
-  z.object({ notes: z.array(importedNoteSchema) }),
-  z.object({ data: z.array(importedNoteSchema) }),
-]);
 
 const NoteSkeleton = () => (
   <div className="aspect-square rounded-3xl p-8 border border-outline-variant bg-surface space-y-6">
@@ -49,7 +33,45 @@ export const ListPage = (): ReactElement | null => {
   const [selectedTag, setSelectedTag] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(1);
   const [isClearAllModalOpen, setClearAllModalOpen] = useState(false);
-  const [isExportModalOpen, setExportModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Note | null>(null);
+  const [activeMenuNoteId, setActiveMenuNoteId] = useState<string | null>(null);
+  const [isHoveringFolderSubmenu, setIsHoveringFolderSubmenu] = useState(false);
+  const [isCreateFolderModalOpen, setCreateFolderModalOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [folderTargetNoteId, setFolderTargetNoteId] = useState<string | null>(null);
+
+  const { useGetAllFoldersFlat, createFolder, addNoteToFolder } = useFolders();
+  const { data: flatFoldersData } = useGetAllFoldersFlat();
+  const availableFolders = flatFoldersData?.folders || [];
+
+  const handleAssignToFolder = async (folderId: string): Promise<void> => {
+    if (!folderTargetNoteId) return;
+    try {
+      await addNoteToFolder({ folderId, noteId: folderTargetNoteId });
+      setActiveMenuNoteId(null);
+      setFolderTargetNoteId(null);
+    } catch {
+      return;
+    }
+  };
+
+  const handleCreateFolderAndAssign = async (e: React.FormEvent): Promise<void> => {
+    e.preventDefault();
+    if (!newFolderName.trim()) return;
+    try {
+      const res = await createFolder({ name: newFolderName.trim() });
+      const createdFolder = res.folder ?? res.data;
+      if (folderTargetNoteId && createdFolder?._id) {
+        await addNoteToFolder({ folderId: createdFolder._id, noteId: folderTargetNoteId });
+      }
+      setNewFolderName('');
+      setCreateFolderModalOpen(false);
+      setActiveMenuNoteId(null);
+      setFolderTargetNoteId(null);
+    } catch {
+      return;
+    }
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -59,7 +81,7 @@ export const ListPage = (): ReactElement | null => {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const { useGetAll, deleteAll } = useNotes({
+  const { useGetAll, delete: deleteNote, deleteAll } = useNotes({
     search: debouncedSearch,
     tag: selectedTag,
     page,
@@ -68,111 +90,38 @@ export const ListPage = (): ReactElement | null => {
 
   const { data, isLoading, isError, error, refetch } = useGetAll();
 
-  const handleExportJSON = async (): Promise<void> => {
-    try {
-      const allNotesRes = await notesApi.getAll({ limit: 1000 });
-      const notes: Note[] = allNotesRes.notes ?? allNotesRes.data ?? [];
-      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(notes, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute('href', dataStr);
-      downloadAnchor.setAttribute('download', `noteshub-backup-${format(new Date(), 'yyyy-MM-dd')}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-      uiActions.success('Exported notes as JSON backup');
-      setExportModalOpen(false);
-    } catch {
-      uiActions.error('Failed to export notes');
+  const handleImportTXT = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.txt') && file.type !== 'text/plain') {
+      uiActions.error('Please select a valid .txt file.');
+      e.target.value = '';
+      return;
     }
-  };
 
-  const handleExportPDF = async (): Promise<void> => {
-    try {
-      const allNotesRes = await notesApi.getAll({ limit: 1000 });
-      const notes: Note[] = allNotesRes.notes ?? allNotesRes.data ?? [];
-      const doc = new jsPDF();
-
-      doc.setFontSize(22);
-      doc.text('NotesHub - Workspace Export', 14, 20);
-      doc.setFontSize(10);
-      doc.text(`Generated on ${format(new Date(), 'PPP')}`, 14, 28);
-      doc.line(14, 32, 196, 32);
-
-      let yOffset = 40;
-      notes.forEach((note, index) => {
-        if (yOffset > 260) {
-          doc.addPage();
-          yOffset = 20;
-        }
-
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`${index + 1}. ${note.title}`, 14, yOffset);
-        yOffset += 6;
-
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Tags: ${note.tags.join(', ')} | Updated: ${format(new Date(note.updatedAt), 'MMM dd, yyyy')}`, 14, yOffset);
-        yOffset += 6;
-
-        const cleanBody = (note.content || note.body || '').replace(/<[^>]*>?/gm, '');
-        const splitText = doc.splitTextToSize(cleanBody, 180);
-        doc.setFontSize(10);
-        doc.text(splitText, 14, yOffset);
-        yOffset += splitText.length * 5 + 10;
-      });
-
-      doc.save(`noteshub-notes-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-      uiActions.success('Exported notes as PDF document');
-      setExportModalOpen(false);
-    } catch {
-      uiActions.error('Failed to generate PDF');
-    }
-  };
-
-  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileReader = new FileReader();
-    if (e.target.files && e.target.files[0]) {
-      fileReader.readAsText(e.target.files[0], 'UTF-8');
-      fileReader.onload = async (event) => {
-        try {
-          const parsed = JSON.parse(event.target?.result as string);
-          const parseResult = importSchema.safeParse(parsed);
-          if (!parseResult.success) {
-            uiActions.error('Invalid JSON structure: Each note must have a title and body.');
-            return;
-          }
-
-          const rawNotes = Array.isArray(parseResult.data)
-            ? parseResult.data
-            : 'notes' in parseResult.data
-              ? parseResult.data.notes
-              : parseResult.data.data;
-
-          if (!rawNotes.length) {
-            uiActions.error('No notes found in imported file.');
-            return;
-          }
-
-          let successCount = 0;
-          for (const note of rawNotes) {
-            const bodyContent = note.content || note.body;
-            if (note.title && bodyContent) {
-              await notesApi.create({
-                title: note.title,
-                body: bodyContent,
-                tags: note.tags || ['work'],
-              });
-              successCount++;
-            }
-          }
-          uiActions.success(`Successfully imported ${successCount} notes.`);
-          refetch();
-        } catch {
-          uiActions.error('Invalid JSON structure.');
-        }
-      };
-    }
+    fileReader.onload = async (event) => {
+      try {
+        const rawContent = (event.target?.result as string) || '';
+        const title = file.name.replace(/\.[^/.]+$/, '').trim() || 'Imported Note';
+        const formattedBody = rawContent
+          .split(/\r?\n/)
+          .map((line) => (line.trim() ? `<p>${line}</p>` : '<p><br></p>'))
+          .join('');
+        await notesApi.create({
+          title,
+          body: formattedBody || '<p>Empty note content</p>',
+          tags: ['work'],
+        });
+        uiActions.success(`Successfully imported "${title}".`);
+        refetch();
+      } catch {
+        uiActions.error('Failed to import text file.');
+      }
+    };
+    fileReader.readAsText(file, 'UTF-8');
+    e.target.value = '';
   };
 
   if (isError) return <ErrorView message={error instanceof Error ? error.message : 'Error fetching workspace'} onRetry={refetch} />;
@@ -191,18 +140,11 @@ export const ListPage = (): ReactElement | null => {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <label className="cursor-pointer">
-            <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" />
+            <input type="file" accept=".txt,text/plain" onChange={handleImportTXT} className="hidden" />
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-surface-container border border-outline-variant hover:bg-surface-hover transition-colors text-on-surface">
               <Upload className="w-3.5 h-3.5" /> Import
             </span>
           </label>
-          <Button
-            variant="secondary"
-            onClick={() => setExportModalOpen(true)}
-            className="flex items-center gap-2 text-xs font-bold"
-          >
-            <Download className="w-3.5 h-3.5" /> Export
-          </Button>
           {notes.length > 0 && (
             <Button
               variant="danger"
@@ -325,18 +267,144 @@ export const ListPage = (): ReactElement | null => {
                 </div>
               </Link>
 
-              <div className="absolute bottom-6 right-6 flex gap-2.5">
+              <div className="absolute bottom-6 right-6 flex items-center gap-2">
                 <button
                   type="button"
                   aria-label="Edit note"
                   onClick={(e) => {
+                    e.preventDefault();
                     e.stopPropagation();
                     navigate(`/notes/${note._id}/edit`);
                   }}
-                  className="w-10 h-10 bg-primary text-on-primary rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-md hover:bg-primary-hover hover:scale-105 z-10 active:scale-95"
+                  className="w-9 h-9 bg-primary text-on-primary rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-md hover:bg-primary-hover hover:scale-105 z-10 active:scale-95"
+                  title="Edit note"
                 >
                   <Edit3 className="w-4 h-4" />
                 </button>
+
+                <div className="relative z-20">
+                  <button
+                    type="button"
+                    aria-label="More actions"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (activeMenuNoteId === note._id) {
+                        setActiveMenuNoteId(null);
+                        setFolderTargetNoteId(null);
+                      } else {
+                        setActiveMenuNoteId(note._id);
+                        setFolderTargetNoteId(note._id);
+                      }
+                    }}
+                    className="w-9 h-9 bg-surface border border-outline-variant text-on-surface rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-xs hover:bg-neutral-100 hover:scale-105 active:scale-95"
+                    title="More actions"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+
+                  {activeMenuNoteId === note._id && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-30"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setActiveMenuNoteId(null);
+                          setFolderTargetNoteId(null);
+                        }}
+                      />
+                      <div
+                        className="absolute right-0 bottom-11 w-56 bg-white rounded-2xl shadow-xl border border-outline-variant py-1.5 z-40 text-left animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div
+                          onMouseEnter={() => setIsHoveringFolderSubmenu(true)}
+                          onMouseLeave={() => setIsHoveringFolderSubmenu(false)}
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsHoveringFolderSubmenu((prev) => !prev);
+                            }}
+                            className="w-full px-3.5 py-2 text-xs font-bold text-on-surface hover:bg-neutral-100 flex items-center justify-between transition-colors"
+                          >
+                            <span className="flex items-center gap-2">
+                              <FolderIcon className="w-3.5 h-3.5 text-on-surface-variant" /> Add to folder
+                            </span>
+                            <ChevronRight
+                              className={`w-3.5 h-3.5 text-on-surface-variant transition-transform duration-200 ${
+                                isHoveringFolderSubmenu ? 'rotate-90' : ''
+                              }`}
+                            />
+                          </button>
+
+                          {isHoveringFolderSubmenu && (
+                            <div className="bg-neutral-50/90 border-y border-outline-variant/60 py-1.5 px-1 max-h-48 overflow-y-auto space-y-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                              {availableFolders.length > 0 ? (
+                                <>
+                                  <div className="px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-on-surface-variant/60">
+                                    Select Folder
+                                  </div>
+                                  {availableFolders.map((f) => (
+                                    <button
+                                      key={f._id}
+                                      type="button"
+                                      onClick={() => handleAssignToFolder(f._id)}
+                                      className="w-full px-2.5 py-1.5 text-xs font-semibold text-on-surface hover:bg-white hover:text-primary rounded-lg flex items-center gap-2 truncate transition-colors text-left"
+                                    >
+                                      <FolderIcon className="w-3.5 h-3.5 shrink-0 text-primary" />
+                                      <span className="truncate">{f.name}</span>
+                                    </button>
+                                  ))}
+                                  <div className="border-t border-outline-variant/60 my-1" />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveMenuNoteId(null);
+                                      setCreateFolderModalOpen(true);
+                                    }}
+                                    className="w-full px-2.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/10 rounded-lg flex items-center gap-2 transition-colors text-left"
+                                  >
+                                    <FolderPlus className="w-3.5 h-3.5" /> + Create New Folder
+                                  </button>
+                                </>
+                              ) : (
+                                <div className="p-2.5 text-center space-y-1.5">
+                                  <p className="text-[11px] font-medium text-on-surface-variant">No folders created</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveMenuNoteId(null);
+                                      setCreateFolderModalOpen(true);
+                                    }}
+                                    className="w-full py-1 px-2 text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                                  >
+                                    <FolderPlus className="w-3.5 h-3.5" /> Create Folder
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="border-t border-outline-variant my-1" />
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveMenuNoteId(null);
+                            setDeleteTarget(note);
+                          }}
+                          className="w-full px-3.5 py-2 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors text-left"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Move to Trash
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -368,49 +436,13 @@ export const ListPage = (): ReactElement | null => {
       )}
 
       <Modal
-        isOpen={isExportModalOpen}
-        onClose={() => setExportModalOpen(false)}
-        title="Export Workspace Notes"
-      >
-        <div className="space-y-6">
-          <p className="text-sm text-on-surface-variant font-medium">
-            Choose your preferred export format. You can download all your notes as a JSON backup or a formatted PDF document.
-          </p>
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              type="button"
-              onClick={handleExportJSON}
-              className="flex flex-col items-center gap-3 p-6 rounded-2xl border border-outline-variant bg-surface hover:bg-surface-hover hover:border-primary/40 transition-all text-center group"
-            >
-              <FileJson className="w-8 h-8 text-primary group-hover:scale-110 transition-transform" />
-              <div>
-                <p className="text-sm font-bold text-on-surface">JSON Backup</p>
-                <p className="text-xs text-on-surface-variant">Raw data for importing</p>
-              </div>
-            </button>
-            <button
-              type="button"
-              onClick={handleExportPDF}
-              className="flex flex-col items-center gap-3 p-6 rounded-2xl border border-outline-variant bg-surface hover:bg-surface-hover hover:border-primary/40 transition-all text-center group"
-            >
-              <FileText className="w-8 h-8 text-primary group-hover:scale-110 transition-transform" />
-              <div>
-                <p className="text-sm font-bold text-on-surface">PDF Document</p>
-                <p className="text-xs text-on-surface-variant">Formatted for reading</p>
-              </div>
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
         isOpen={isClearAllModalOpen}
         onClose={() => setClearAllModalOpen(false)}
         title="Clear entire workspace?"
       >
         <div className="space-y-6">
           <p className="text-sm text-on-surface-variant font-medium">
-            This will permanently delete all notes from your workspace. This action cannot be reversed.
+            This will move all notes from your workspace to Trash. They will remain in Trash for 3 days before being permanently deleted.
           </p>
           <div className="flex items-center justify-end gap-3">
             <Button variant="secondary" onClick={() => setClearAllModalOpen(false)}>
@@ -431,6 +463,68 @@ export const ListPage = (): ReactElement | null => {
             </Button>
           </div>
         </div>
+      </Modal>
+      <Modal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        title="Move to Trash?"
+      >
+        <div className="space-y-6">
+          <p className="text-sm text-on-surface-variant font-medium">
+            Are you sure you want to move &quot;{deleteTarget?.title}&quot; to Trash? It will remain in Trash for 3 days before being permanently deleted.
+          </p>
+          <div className="flex items-center justify-end gap-3">
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={async () => {
+                if (!deleteTarget) return;
+                try {
+                  await deleteNote(deleteTarget._id);
+                  setDeleteTarget(null);
+                } catch {
+                  return;
+                }
+              }}
+            >
+              Move to Trash
+            </Button>
+          </div>
+        </div>
+      </Modal>
+      <Modal
+        isOpen={isCreateFolderModalOpen}
+        onClose={() => setCreateFolderModalOpen(false)}
+        title="Create New Folder"
+      >
+        <form onSubmit={handleCreateFolderAndAssign} className="space-y-5">
+          <div className="space-y-1.5 text-left">
+            <label htmlFor="assign-folder-name" className="text-xs font-bold text-on-surface uppercase tracking-wider">
+              Folder Name
+            </label>
+            <input
+              id="assign-folder-name"
+              type="text"
+              required
+              autoFocus
+              placeholder="e.g. Work, Research, Personal"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              className="w-full bg-surface border border-outline-variant px-4 py-2.5 rounded-xl text-sm font-semibold text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <Button variant="secondary" type="button" onClick={() => setCreateFolderModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" type="submit">
+              Create Folder
+            </Button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

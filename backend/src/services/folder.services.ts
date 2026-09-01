@@ -374,10 +374,11 @@ export const permanentDeleteFolderOf = async (
     const folder = await Folder.findOne({
       _id: toObjectId(folderId),
       user: toObjectId(userId),
+      isDeleted: true,
     });
 
     if (!folder) {
-      throw new BadRequest('Folder not found');
+      throw new BadRequest('Folder not found in Trash');
     }
 
     // Collect all subfolder IDs recursively
