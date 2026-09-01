@@ -33,17 +33,17 @@ describe('useAuth Hook', () => {
 
   describe('signin', () => {
     it('handles signin errors via uiActions', async () => {
-      vi.mocked(authApi.signin).mockRejectedValue({ response: { data: { message: 'Error' } } });
+      vi.mocked(authApi.signin).mockRejectedValue(new Error('Invalid credentials'));
 
       const { result } = renderHook(() => useAuth(), { wrapper });
 
-      await act(async () => {
-        try {
+      try {
+        await act(async () => {
           await result.current.signin({ email: 'test@example.com', password: 'wrong' });
-        } catch {
-          // Expected rejection
-        }
-      });
+        });
+      } catch {
+        // Expected rejection
+      }
 
       expect(uiActions.error).toHaveBeenCalled();
     });

@@ -1,21 +1,29 @@
 name: Build
+
 on:
   push:
     branches:
       - develop
   pull_request:
+    branches:
+      - develop
     types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
 
 jobs:
   sonarqube:
-    name: SonarQube
+    name: SonarQube Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Checkout Code
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
+        if: github.event.pull_request.head.repo.fork == false || github.event_name == 'push'
+        uses: SonarSource/sonarqube-scan-action@v4
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

@@ -4,7 +4,8 @@ import { ListPage } from './ListPage';
 import { MemoryRouter } from 'react-router-dom';
 import { useNotes } from '../../hooks/useNotes';
 import { useFolders } from '../../hooks/useFolders';
-import type { PaginatedNotesResponse, Note } from '../../types/api.types';
+import type { PaginatedNotesResponse, FoldersResponse, Note, ChatResponse, ChatRequest } from '../../types/api.types';
+import type { UseQueryResult, UseMutationResult } from '@tanstack/react-query';
 
 vi.mock('../../hooks/useNotes', () => ({
   useNotes: vi.fn(),
@@ -14,40 +15,40 @@ vi.mock('../../hooks/useFolders', () => ({
   useFolders: vi.fn(),
 }));
 
-const createFoldersMock = (overrides = {}) => ({
-  useGetFolders: () => ({ data: undefined, isLoading: false }),
-  useGetFolderDetails: () => ({ data: undefined, isLoading: false }),
-  useGetAllFoldersFlat: () => ({ data: { success: true, folders: [] }, isLoading: false }),
+const createFoldersMock = (overrides?: Partial<ReturnType<typeof useFolders>>): ReturnType<typeof useFolders> => ({
+  useGetFolders: vi.fn(),
+  useGetFolderDetails: vi.fn(),
+  useGetAllFoldersFlat: () => ({ data: { success: true, data: [], folders: [] } as FoldersResponse, isLoading: false } as unknown as UseQueryResult<FoldersResponse, Error>),
   createFolder: vi.fn(),
   renameFolder: vi.fn(),
   deleteFolder: vi.fn(),
   addNoteToFolder: vi.fn(),
   removeNoteFromFolder: vi.fn(),
-  useGetTrashFolders: () => ({ data: undefined, isLoading: false }),
+  useGetTrashFolders: vi.fn(),
   restoreFolder: vi.fn(),
   permanentDeleteFolder: vi.fn(),
   ...overrides,
 });
 
-const createNotesMock = (overrides = {}) => ({
-  useGetById: () => ({ data: undefined, isLoading: false }),
-  useGetAll: () => ({ data: undefined, isLoading: false }),
+const createNotesMock = (overrides?: Partial<ReturnType<typeof useNotes>>): ReturnType<typeof useNotes> => ({
+  useGetById: vi.fn(),
+  useGetAll: () => ({ data: undefined, isLoading: false } as unknown as UseQueryResult<PaginatedNotesResponse, Error>),
   create: vi.fn(),
   update: vi.fn(),
   delete: vi.fn(),
   deleteAll: vi.fn(),
-  useGetTrash: () => ({ data: undefined, isLoading: false }),
+  useGetTrash: vi.fn(),
   restore: vi.fn(),
   permanentDelete: vi.fn(),
   emptyTrash: vi.fn(),
-  chat: vi.fn(),
+  chat: vi.fn() as unknown as UseMutationResult<ChatResponse, Error, ChatRequest>['mutateAsync'],
   ...overrides,
 });
 
 describe('ListPage - Initial Loading', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useFolders).mockReturnValue(createFoldersMock() as unknown as ReturnType<typeof useFolders>);
+    vi.mocked(useFolders).mockReturnValue(createFoldersMock());
     vi.mocked(useNotes).mockReturnValue(
       createNotesMock({
         useGetAll: () => ({
@@ -56,8 +57,8 @@ describe('ListPage - Initial Loading', () => {
           isFetching: false,
           isError: false,
           refetch: vi.fn(),
-        }),
-      }) as unknown as ReturnType<typeof useNotes>
+        } as unknown as UseQueryResult<PaginatedNotesResponse, Error>),
+      })
     );
   });
 
@@ -74,7 +75,7 @@ describe('ListPage - Initial Loading', () => {
 describe('ListPage - Empty State', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useFolders).mockReturnValue(createFoldersMock() as unknown as ReturnType<typeof useFolders>);
+    vi.mocked(useFolders).mockReturnValue(createFoldersMock());
     vi.mocked(useNotes).mockReturnValue(
       createNotesMock({
         useGetAll: () => ({
@@ -83,8 +84,8 @@ describe('ListPage - Empty State', () => {
           isFetching: false,
           isError: false,
           refetch: vi.fn(),
-        }),
-      }) as unknown as ReturnType<typeof useNotes>
+        } as unknown as UseQueryResult<PaginatedNotesResponse, Error>),
+      })
     );
   });
 
@@ -134,7 +135,7 @@ describe('ListPage - Notes List & Search', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useFolders).mockReturnValue(createFoldersMock() as unknown as ReturnType<typeof useFolders>);
+    vi.mocked(useFolders).mockReturnValue(createFoldersMock());
     vi.mocked(useNotes).mockReturnValue(
       createNotesMock({
         useGetAll: vi.fn().mockReturnValue({
@@ -143,8 +144,8 @@ describe('ListPage - Notes List & Search', () => {
           isFetching: false,
           isError: false,
           refetch: vi.fn(),
-        }),
-      }) as unknown as ReturnType<typeof useNotes>
+        } as unknown as UseQueryResult<PaginatedNotesResponse, Error>),
+      })
     );
   });
 
@@ -207,7 +208,7 @@ describe('ListPage - Management Actions', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useFolders).mockReturnValue(createFoldersMock() as unknown as ReturnType<typeof useFolders>);
+    vi.mocked(useFolders).mockReturnValue(createFoldersMock());
     vi.mocked(useNotes).mockReturnValue(
       createNotesMock({
         useGetAll: () => ({
@@ -216,10 +217,10 @@ describe('ListPage - Management Actions', () => {
           isFetching: false,
           isError: false,
           refetch: vi.fn(),
-        }),
+        } as unknown as UseQueryResult<PaginatedNotesResponse, Error>),
         delete: mockDelete,
         deleteAll: mockDeleteAll,
-      }) as unknown as ReturnType<typeof useNotes>
+      })
     );
   });
 

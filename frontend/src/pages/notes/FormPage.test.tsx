@@ -3,7 +3,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FormPage } from './FormPage';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { useNotes } from '../../hooks/useNotes';
-import type { SingleNoteResponse, Note } from '../../types/api.types';
+import type { SingleNoteResponse, Note, ChatResponse, ChatRequest } from '../../types/api.types';
+import type { UseQueryResult, UseMutationResult } from '@tanstack/react-query';
 
 vi.mock('../../hooks/useNotes', () => ({
   useNotes: vi.fn(),
@@ -19,18 +20,18 @@ vi.mock('../../components/editor/RichTextEditor', () => ({
   ),
 }));
 
-const createNotesMock = (overrides = {}) => ({
-  useGetById: () => ({ data: undefined, isLoading: false }),
-  useGetAll: () => ({ data: undefined, isLoading: false }),
+const createNotesMock = (overrides?: Partial<ReturnType<typeof useNotes>>): ReturnType<typeof useNotes> => ({
+  useGetById: () => ({ data: undefined, isLoading: false } as unknown as UseQueryResult<SingleNoteResponse, Error>),
+  useGetAll: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),
   delete: vi.fn(),
   deleteAll: vi.fn(),
-  useGetTrash: () => ({ data: undefined, isLoading: false }),
+  useGetTrash: vi.fn(),
   restore: vi.fn(),
   permanentDelete: vi.fn(),
   emptyTrash: vi.fn(),
-  chat: vi.fn(),
+  chat: vi.fn() as unknown as UseMutationResult<ChatResponse, Error, ChatRequest>['mutateAsync'],
   ...overrides,
 });
 
@@ -39,9 +40,7 @@ describe('FormPage - Create Mode', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useNotes).mockReturnValue(
-      createNotesMock({ create: mockCreate }) as unknown as ReturnType<typeof useNotes>
-    );
+    vi.mocked(useNotes).mockReturnValue(createNotesMock({ create: mockCreate }));
   });
 
   it('renders "Create Note" button for new notes', () => {
@@ -114,9 +113,9 @@ describe('FormPage - Edit Mode', () => {
     vi.clearAllMocks();
     vi.mocked(useNotes).mockReturnValue(
       createNotesMock({
-        useGetById: () => ({ data: { success: true, note: existingNote } as SingleNoteResponse, isLoading: false }),
+        useGetById: () => ({ data: { success: true, note: existingNote } as SingleNoteResponse, isLoading: false } as unknown as UseQueryResult<SingleNoteResponse, Error>),
         update: mockUpdate,
-      }) as unknown as ReturnType<typeof useNotes>
+      })
     );
   });
 
