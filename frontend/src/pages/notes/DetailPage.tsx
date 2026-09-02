@@ -10,8 +10,7 @@ import { ChevronLeft, Edit3, Trash2, Download, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { useState, type ReactElement } from 'react';
 import { uiActions } from '../../utils/uiActions';
-import { formatSingleNoteText, renderNoteToPdf } from '../../utils/exportNote';
-import jsPDF from 'jspdf';
+import { formatSingleNoteText, generateNotePdf, downloadPdfFile } from '../../utils/exportNote';
 
 export const DetailPage = (): ReactElement | null => {
   const { id } = useParams<{ id: string }>();
@@ -60,10 +59,9 @@ export const DetailPage = (): ReactElement | null => {
 
   const handleExportPDF = (): void => {
     try {
-      const doc = new jsPDF();
-      renderNoteToPdf(doc, note);
+      const doc = generateNotePdf(note);
       const safeFilename = (note.title || 'untitled').replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
-      doc.save(`${safeFilename}.pdf`);
+      downloadPdfFile(doc, `${safeFilename}.pdf`);
       uiActions.success('Exported note as PDF.');
       setExportModalOpen(false);
     } catch {

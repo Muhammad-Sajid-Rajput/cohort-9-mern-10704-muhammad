@@ -91,19 +91,21 @@ const FormattedBotMessage = ({ content }: { content: string }): ReactElement => 
       return;
     }
 
-    const bulletMatch = trimmed.match(/^[-*•]\s+(.*)$/);
-    if (bulletMatch) {
+    const bulletPrefix = trimmed.match(/^[-*•]\s+/);
+    if (bulletPrefix) {
+      const content = trimmed.slice(bulletPrefix[0].length);
       if (currentList && currentList.type !== 'ul') flushList(idx);
       if (!currentList) currentList = { type: 'ul', items: [] };
-      currentList.items.push(bulletMatch[1]);
+      currentList.items.push(content);
       return;
     }
 
-    const numberMatch = trimmed.match(/^\d+\.\s+(.*)$/);
-    if (numberMatch) {
+    const numberPrefix = trimmed.match(/^\d+\.\s+/);
+    if (numberPrefix) {
+      const content = trimmed.slice(numberPrefix[0].length);
       if (currentList && currentList.type !== 'ol') flushList(idx);
       if (!currentList) currentList = { type: 'ol', items: [] };
-      currentList.items.push(numberMatch[1]);
+      currentList.items.push(content);
       return;
     }
 

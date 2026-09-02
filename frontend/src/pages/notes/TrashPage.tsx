@@ -68,7 +68,7 @@ const getExpiryBadge = (deletedAt?: string | null): ExpiryBadge => {
       return { text: 'Expires in 3 days', className: 'bg-amber-50 text-amber-700 border-amber-200' };
     }
     const deletedTime = new Date(deletedAt).getTime();
-    if (isNaN(deletedTime)) {
+    if (Number.isNaN(deletedTime)) {
       return { text: 'Expires in 3 days', className: 'bg-amber-50 text-amber-700 border-amber-200' };
     }
     const diffMs = now - deletedTime;

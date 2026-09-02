@@ -52,7 +52,7 @@ const isValidUrl = (url: string): boolean => {
   if (!url) return false;
   if (/^mailto:/i.test(url)) {
     const email = url.slice(7).trim();
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    return /^\S+@\S+\.\S+$/.test(email);
   }
   if (/^tel:/i.test(url)) {
     const phone = url.slice(4).trim();
@@ -296,7 +296,7 @@ export const RichTextEditor = ({ value, onChange, placeholder }: RichTextEditorP
         onClose={() => setIsLinkModalOpen(false)}
         title={editor.isActive('link') ? 'Edit Link' : 'Insert Link'}
       >
-        <div className="space-y-4 text-left" onClick={(e) => e.stopPropagation()}>
+        <div className="space-y-4 text-left">
           <div className="space-y-1.5">
             <label htmlFor="link-modal-url" className="block text-xs font-bold text-on-surface">
               Link URL <span className="text-primary">*</span>

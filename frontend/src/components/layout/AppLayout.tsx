@@ -133,8 +133,11 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   return (
     <div className="flex h-screen bg-background overflow-hidden text-on-surface">
       {isMobileMenuOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-neutral-900/40 backdrop-blur-xs md:hidden"
+        <button
+          type="button"
+          aria-label="Close mobile sidebar backdrop"
+          tabIndex={-1}
+          className="fixed inset-0 z-40 bg-neutral-900/40 backdrop-blur-xs md:hidden cursor-default"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}

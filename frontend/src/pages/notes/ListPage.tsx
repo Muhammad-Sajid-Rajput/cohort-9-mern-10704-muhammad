@@ -305,8 +305,11 @@ export const ListPage = (): ReactElement | null => {
 
                   {activeMenuNoteId === note._id && (
                     <>
-                      <div
-                        className="fixed inset-0 z-30"
+                      <button
+                        type="button"
+                        aria-label="Close actions menu backdrop"
+                        tabIndex={-1}
+                        className="fixed inset-0 z-30 cursor-default"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();

@@ -36,6 +36,146 @@ const FolderCardSkeleton = (): ReactElement => (
   </div>
 );
 
+interface FolderCardProps {
+  folder: Folder;
+  isActiveMenu: boolean;
+  onToggleMenu: () => void;
+  onCloseMenu: () => void;
+  onStartRename: () => void;
+  onStartDelete: () => void;
+}
+
+const FolderCard = ({
+  folder,
+  isActiveMenu,
+  onToggleMenu,
+  onCloseMenu,
+  onStartRename,
+  onStartDelete,
+}: FolderCardProps): ReactElement => {
+  return (
+    <div className="group relative rounded-3xl p-6 border border-outline-variant bg-surface hover:bg-surface-hover hover:border-primary/40 hover:shadow-md transition-all flex items-center justify-between">
+      <Link to={`/folders/${folder._id}`} className="flex items-center gap-4 flex-1 min-w-0">
+        <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
+          <FolderIcon className="w-6 h-6 fill-primary/20 text-primary" />
+        </div>
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <h3 className="text-base font-bold text-on-surface truncate group-hover:text-primary transition-colors">
+            {folder.name}
+          </h3>
+          <p className="text-xs font-medium text-on-surface-variant">
+            {folder.subfolderCount || 0} subfolders &bull; {folder.noteCount || 0} notes
+          </p>
+        </div>
+      </Link>
+
+      <div className="relative shrink-0 ml-2">
+        <button
+          type="button"
+          aria-label="Folder options"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleMenu();
+          }}
+          className="p-2 rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-neutral-100 transition-colors"
+        >
+          <MoreVertical className="w-4 h-4" />
+        </button>
+
+        {isActiveMenu && (
+          <>
+            <button
+              type="button"
+              aria-label="Close folder options backdrop"
+              tabIndex={-1}
+              className="fixed inset-0 z-30 cursor-default"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCloseMenu();
+              }}
+            />
+            <div className="absolute right-0 top-10 w-36 bg-white rounded-2xl shadow-xl border border-outline-variant py-1.5 z-40 text-left animate-in fade-in zoom-in-95 duration-150">
+              <button
+                type="button"
+                onClick={() => {
+                  onCloseMenu();
+                  onStartRename();
+                }}
+                className="w-full px-3.5 py-2 text-xs font-semibold text-on-surface hover:bg-neutral-100 flex items-center gap-2 transition-colors text-left"
+              >
+                <Edit2 className="w-3.5 h-3.5" /> Rename
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onCloseMenu();
+                  onStartDelete();
+                }}
+                className="w-full px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors text-left"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Delete
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+interface FolderNoteCardProps {
+  note: Note;
+  onRemove: () => Promise<void>;
+}
+
+const FolderNoteCard = ({ note, onRemove }: FolderNoteCardProps): ReactElement => {
+  const cleanBody = (note.content || note.body || '').replace(/<[^>]*>?/gm, '');
+
+  return (
+    <div className="group rounded-3xl p-7 bg-white border border-outline-variant hover:border-primary/40 hover:shadow-md transition-all flex flex-col justify-between relative overflow-hidden">
+      <Link to={`/notes/${note._id}`} className="space-y-3 text-left flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-1.5">
+            {note.tags?.map((t) => (
+              <span
+                key={t}
+                className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 bg-neutral-50 rounded-lg border border-outline-variant text-black"
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+          <span className="text-[11px] font-bold text-on-surface-variant/70">
+            {format(new Date(note.createdAt || note.updatedAt), 'MMM d, yyyy')}
+          </span>
+        </div>
+
+        <h3 className="text-lg font-extrabold text-on-surface group-hover:text-primary transition-colors leading-snug tracking-tight line-clamp-2">
+          {note.title}
+        </h3>
+        <p className="text-sm font-medium text-on-surface-variant line-clamp-3 leading-relaxed">
+          {cleanBody || 'No additional content'}
+        </p>
+      </Link>
+
+      <div className="mt-auto pt-4 flex items-center justify-between border-t border-outline-variant/50">
+        <span className="text-[11px] font-bold text-on-surface-variant/60">
+          Updated {format(new Date(note.updatedAt), 'p')}
+        </span>
+
+        <button
+          type="button"
+          onClick={onRemove}
+          className="text-xs font-bold text-on-surface-variant hover:text-red-600 flex items-center gap-1 transition-colors px-2 py-1 rounded-lg hover:bg-red-50"
+          title="Remove note from folder"
+        >
+          <X className="w-3.5 h-3.5" /> Remove
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export const FoldersPage = (): ReactElement | null => {
   const { folderId } = useParams<{ folderId?: string }>();
   const navigate = useNavigate();
@@ -54,7 +194,6 @@ export const FoldersPage = (): ReactElement | null => {
   const { data: allNotesData, isLoading: isAllNotesLoading, refetch: refetchAllNotes } = useGetAll({ limit: 100 });
   const allWorkspaceNotes: Note[] = allNotesData?.notes ?? allNotesData?.data ?? [];
 
-  // Root folders query vs Folder details query
   const {
     data: rootFoldersData,
     isLoading: isRootLoading,
@@ -71,7 +210,6 @@ export const FoldersPage = (): ReactElement | null => {
     refetch: refetchDetails,
   } = useGetFolderDetails(folderId || '');
 
-  // Modals state
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [createParentId, setCreateParentId] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState('');
@@ -178,31 +316,27 @@ export const FoldersPage = (): ReactElement | null => {
   }
 
   const filteredWorkspaceNotes = allWorkspaceNotes.filter((n) =>
-    (n.title || '').toLowerCase().includes(noteSearchQuery.toLowerCase())
+    n.title.toLowerCase().includes(noteSearchQuery.toLowerCase())
   );
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">
-      {/* Header & Breadcrumb Bar */}
-      <div className="space-y-4 border-b border-outline-variant pb-6">
-        {/* Breadcrumb path for nested folder navigation */}
-        <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold text-on-surface-variant">
-          <Link to="/folders" className="hover:text-primary transition-colors flex items-center gap-1">
-            <FolderIcon className="w-3.5 h-3.5" /> Folders
+    <div className="max-w-6xl mx-auto space-y-8 pb-16">
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-xs font-semibold text-on-surface-variant overflow-x-auto pb-1">
+          <Link to="/folders" className="hover:text-primary transition-colors flex items-center gap-1.5 shrink-0">
+            <FolderIcon className="w-3.5 h-3.5" />
+            <span>Root Folders</span>
           </Link>
           {isInsideFolder &&
             breadcrumbs.map((crumb, idx) => {
               const isLast = idx === breadcrumbs.length - 1;
               return (
-                <div key={crumb._id} className="flex items-center gap-1.5">
+                <div key={crumb._id} className="flex items-center gap-2 shrink-0">
                   <ChevronRight className="w-3.5 h-3.5 text-on-surface-variant/40" />
                   {isLast ? (
                     <span className="text-on-surface font-extrabold">{crumb.name}</span>
                   ) : (
-                    <Link
-                      to={`/folders/${crumb._id}`}
-                      className="hover:text-primary transition-colors"
-                    >
+                    <Link to={`/folders/${crumb._id}`} className="hover:text-primary transition-colors">
                       {crumb.name}
                     </Link>
                   )}
@@ -211,7 +345,6 @@ export const FoldersPage = (): ReactElement | null => {
             })}
         </div>
 
-        {/* Title and Top Actions */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <h1 className="text-3xl font-extrabold tracking-tight text-on-surface">
@@ -224,7 +357,6 @@ export const FoldersPage = (): ReactElement | null => {
             </p>
           </div>
 
-          {/* Actions toolbar */}
           <div className="flex flex-wrap items-center gap-2.5">
             {isInsideFolder ? (
               <>
@@ -285,7 +417,6 @@ export const FoldersPage = (): ReactElement | null => {
         </div>
       </div>
 
-      {/* Subfolders Section */}
       <div className="space-y-4">
         {isInsideFolder && (
           <h2 className="text-sm font-extrabold uppercase tracking-wider text-on-surface-variant/70">
@@ -327,86 +458,25 @@ export const FoldersPage = (): ReactElement | null => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {foldersToDisplay.map((folder) => (
-              <div
+              <FolderCard
                 key={folder._id}
-                className="group relative rounded-3xl p-6 border border-outline-variant bg-surface hover:bg-surface-hover hover:border-primary/40 hover:shadow-md transition-all flex items-center justify-between"
-              >
-                <Link
-                  to={`/folders/${folder._id}`}
-                  className="flex items-center gap-4 flex-1 min-w-0"
-                >
-                  <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
-                    <FolderIcon className="w-6 h-6 fill-primary/20 text-primary" />
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-0.5">
-                    <h3 className="text-base font-bold text-on-surface truncate group-hover:text-primary transition-colors">
-                      {folder.name}
-                    </h3>
-                    <p className="text-xs font-medium text-on-surface-variant">
-                      {folder.subfolderCount || 0} subfolders &bull; {folder.noteCount || 0} notes
-                    </p>
-                  </div>
-                </Link>
-
-                {/* Folder Actions Menu */}
-                <div className="relative shrink-0 ml-2">
-                  <button
-                    type="button"
-                    aria-label="Folder options"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveMenuFolderId(activeMenuFolderId === folder._id ? null : folder._id);
-                    }}
-                    className="p-2 rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-neutral-100 transition-colors"
-                  >
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
-
-                  {activeMenuFolderId === folder._id && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-30"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveMenuFolderId(null);
-                        }}
-                      />
-                      <div
-                        className="absolute right-0 top-10 w-36 bg-white rounded-2xl shadow-xl border border-outline-variant py-1.5 z-40 text-left animate-in fade-in zoom-in-95 duration-150"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveMenuFolderId(null);
-                            setRenameTarget(folder);
-                            setRenameValue(folder.name);
-                          }}
-                          className="w-full px-3.5 py-2 text-xs font-semibold text-on-surface hover:bg-neutral-100 flex items-center gap-2 transition-colors text-left"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" /> Rename
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveMenuFolderId(null);
-                            setDeleteTarget(folder);
-                          }}
-                          className="w-full px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors text-left"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" /> Delete
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
+                folder={folder}
+                isActiveMenu={activeMenuFolderId === folder._id}
+                onToggleMenu={() =>
+                  setActiveMenuFolderId(activeMenuFolderId === folder._id ? null : folder._id)
+                }
+                onCloseMenu={() => setActiveMenuFolderId(null)}
+                onStartRename={() => {
+                  setRenameTarget(folder);
+                  setRenameValue(folder.name);
+                }}
+                onStartDelete={() => setDeleteTarget(folder)}
+              />
             ))}
           </div>
         )}
       </div>
 
-      {/* Notes in This Folder Section (Only when inside a folder) */}
       {isInsideFolder && (
         <div className="space-y-4 pt-6 border-t border-outline-variant">
           <div className="flex items-center justify-between">
@@ -448,64 +518,13 @@ export const FoldersPage = (): ReactElement | null => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {folderNotes.map((note) => {
-                const cleanBody = (note.content || note.body || '').replace(/<[^>]*>?/gm, '');
-
-                return (
-                  <div
-                    key={note._id}
-                    className="group rounded-3xl p-7 bg-white border border-outline-variant hover:border-primary/40 hover:shadow-md transition-all flex flex-col justify-between relative overflow-hidden"
-                  >
-                    <Link to={`/notes/${note._id}`} className="space-y-3 text-left flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex flex-wrap gap-1.5">
-                          {note.tags?.map((t) => (
-                            <span
-                              key={t}
-                              className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 bg-neutral-50 rounded-lg border border-outline-variant text-black"
-                            >
-                              {t}
-                            </span>
-                          ))}
-                        </div>
-                        <span className="text-[11px] font-bold text-on-surface-variant/70">
-                          {format(new Date(note.createdAt || note.updatedAt), 'MMM d, yyyy')}
-                        </span>
-                      </div>
-
-                      <h3 className="text-lg font-extrabold text-on-surface group-hover:text-primary transition-colors leading-snug tracking-tight line-clamp-2">
-                        {note.title}
-                      </h3>
-                      <p className="text-sm font-medium text-on-surface-variant line-clamp-3 leading-relaxed">
-                        {cleanBody || 'No additional content'}
-                      </p>
-                    </Link>
-
-                    <div className="mt-auto pt-4 flex items-center justify-between border-t border-outline-variant/50">
-                      <span className="text-[11px] font-bold text-on-surface-variant/60">
-                        Updated {format(new Date(note.updatedAt), 'p')}
-                      </span>
-
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (!folderId) return;
-                          try {
-                            await removeNoteFromFolder({ folderId, noteId: note._id });
-                            await Promise.all([refetchDetails(), refetchAllNotes()]);
-                          } catch {
-                            return;
-                          }
-                        }}
-                        className="text-xs font-bold text-on-surface-variant hover:text-red-600 flex items-center gap-1 transition-colors px-2 py-1 rounded-lg hover:bg-red-50"
-                        title="Remove note from folder"
-                      >
-                        <X className="w-3.5 h-3.5" /> Remove
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+              {folderNotes.map((note) => (
+                <FolderNoteCard
+                  key={note._id}
+                  note={note}
+                  onRemove={() => handleToggleNoteInFolder(note)}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -570,7 +589,7 @@ export const FoldersPage = (): ReactElement | null => {
               Cancel
             </Button>
             <Button variant="primary" type="submit">
-              Save Name
+              Save Changes
             </Button>
           </div>
         </form>
@@ -579,18 +598,21 @@ export const FoldersPage = (): ReactElement | null => {
       <Modal
         isOpen={Boolean(deleteTarget)}
         onClose={() => setDeleteTarget(null)}
-        title="Delete Folder?"
+        title="Move Folder to Trash?"
       >
-        <div className="space-y-6 text-left">
-          <p className="text-sm text-on-surface-variant font-medium">
-            Are you sure you want to delete &quot;{deleteTarget?.name}&quot;? Empty folders are deleted permanently. Folders with notes or subfolders stay in Trash for 3 days.
+        <div className="space-y-4 text-left">
+          <p className="text-sm font-semibold text-on-surface-variant leading-relaxed">
+            Are you sure you want to move folder{' '}
+            <span className="font-bold text-on-surface">"{deleteTarget?.name}"</span> to trash?
+            Contained subfolders and notes will remain safely in the workspace.
           </p>
-          <div className="flex items-center justify-end gap-3">
+
+          <div className="flex items-center justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
               Cancel
             </Button>
             <Button variant="danger" onClick={handleDeleteSubmit}>
-              Delete Folder
+              Move to Trash
             </Button>
           </div>
         </div>
@@ -603,67 +625,63 @@ export const FoldersPage = (): ReactElement | null => {
       >
         <div className="space-y-4 text-left">
           <div className="relative">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/60" />
+            <Search className="w-4 h-4 text-on-surface-variant/50 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search notes by title..."
+              placeholder="Search notes to add..."
               value={noteSearchQuery}
               onChange={(e) => setNoteSearchQuery(e.target.value)}
-              className="w-full bg-surface border border-outline-variant pl-10 pr-4 py-2.5 rounded-xl text-xs font-semibold text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              className="w-full bg-surface border border-outline-variant pl-10 pr-4 py-2 rounded-xl text-xs font-semibold text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             />
           </div>
 
-          <div className="max-h-72 overflow-y-auto space-y-1.5 divide-y divide-outline-variant/40">
+          <div className="max-h-64 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
             {isAllNotesLoading ? (
-              <div className="flex items-center justify-center py-8">
+              <div className="py-8 flex justify-center">
                 <Spinner />
               </div>
             ) : filteredWorkspaceNotes.length === 0 ? (
-              <p className="text-xs font-medium text-on-surface-variant/60 text-center py-6">
-                No notes found.
-              </p>
+              <div className="py-6 text-center text-xs font-semibold text-on-surface-variant/60">
+                No matching notes found.
+              </div>
             ) : (
               filteredWorkspaceNotes.map((note) => {
-                const isInCurrentFolder = folderNotes.some((fn) => fn._id === note._id);
+                const isSelected = folderNotes.some((fn) => fn._id === note._id);
+
                 return (
                   <div
                     key={note._id}
-                    className="pt-2 flex items-center justify-between gap-3 px-2 py-1.5 rounded-xl hover:bg-neutral-50 transition-colors"
+                    onClick={() => handleToggleNoteInFolder(note)}
+                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-primary/40 bg-primary/5 text-on-surface'
+                        : 'border-outline-variant bg-surface hover:bg-surface-hover text-on-surface'
+                    }`}
                   >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-on-surface truncate">{note.title}</p>
-                      <p className="text-[11px] font-medium text-on-surface-variant">
-                        {format(new Date(note.createdAt || note.updatedAt), 'MMM d, yyyy')}
+                    <div className="min-w-0 flex-1 space-y-0.5 mr-3">
+                      <p className="text-xs font-bold truncate">{note.title}</p>
+                      <p className="text-[10px] text-on-surface-variant/70">
+                        {note.tags?.join(', ') || 'No tags'}
                       </p>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleToggleNoteInFolder(note)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
-                        isInCurrentFolder
-                          ? 'bg-neutral-100 text-neutral-600 hover:bg-red-50 hover:text-red-600'
-                          : 'bg-primary text-white hover:bg-primary-hover shadow-xs'
+                    <div
+                      className={`w-6 h-6 rounded-xl flex items-center justify-center shrink-0 border transition-all ${
+                        isSelected
+                          ? 'bg-primary border-primary text-white'
+                          : 'border-outline-variant bg-surface-container'
                       }`}
                     >
-                      {isInCurrentFolder ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-green-600" /> Added
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="w-3.5 h-3.5" /> Add
-                        </>
-                      )}
-                    </button>
+                      {isSelected && <Check className="w-3.5 h-3.5" />}
+                    </div>
                   </div>
                 );
               })
             )}
           </div>
 
-          <div className="flex justify-end pt-2 border-t border-outline-variant">
-            <Button variant="secondary" onClick={() => setAddNoteModalOpen(false)}>
+          <div className="flex items-center justify-end pt-2">
+            <Button variant="primary" onClick={() => setAddNoteModalOpen(false)}>
               Done
             </Button>
           </div>

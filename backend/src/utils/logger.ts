@@ -1,39 +1,34 @@
 import pino from 'pino';
+import fs from 'fs';
+import path from 'path';
+
+const logDir = path.join(__dirname, '../../logs');
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir, { recursive: true });
+}
 
 const targets: pino.TransportTargetOptions[] = [
   {
-    target: 'pino-roll',
-    level: 'error',
-    options: {
-      file: 'logs/error',
-      frequency: 'daily',
-      extension: '.log',
-      size: '20m',
-      mkdir: true,
-    },
+    target: 'pino/file',
+    options: { destination: path.join(logDir, 'combined.log'), mkdir: true },
+    level: 'info',
   },
   {
-    target: 'pino-roll',
-    level: 'info',
-    options: {
-      file: 'logs/combined',
-      frequency: 'daily',
-      extension: '.log',
-      size: '20m',
-      mkdir: true,
-    },
+    target: 'pino/file',
+    options: { destination: path.join(logDir, 'error.log'), mkdir: true },
+    level: 'error',
   },
 ];
 
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV === 'development') {
   targets.push({
     target: 'pino-pretty',
-    level: 'debug',
     options: {
       colorize: true,
-      translateTime: 'HH:MM:ss',
+      translateTime: 'SYS:yyyy-mm-dd HH:MM:ss.l',
       ignore: 'pid,hostname',
     },
+    level: 'debug',
   });
 }
 
@@ -50,11 +45,20 @@ const pinoLogger = pino(
 
 type LogLevel = 'info' | 'error' | 'warn' | 'debug';
 
+const sanitizeData = (val: unknown): unknown => {
+  if (typeof val === 'string') {
+    return val.replace(/[\r\n\t]/g, ' ').trim();
+  }
+  return val;
+};
+
 const logWithSwap = (level: LogLevel, msgOrObj: string | object, ...args: unknown[]): void => {
-  if (typeof msgOrObj === 'string' && args.length > 0 && typeof args[0] === 'object' && args[0] !== null) {
-    pinoLogger[level](args[0] as object, msgOrObj, ...args.slice(1) as string[]);
+  const sanitizedMsg = typeof msgOrObj === 'string' ? (sanitizeData(msgOrObj) as string) : msgOrObj;
+  const sanitizedArgs = args.map(sanitizeData);
+  if (typeof sanitizedMsg === 'string' && sanitizedArgs.length > 0 && typeof sanitizedArgs[0] === 'object' && sanitizedArgs[0] !== null) {
+    pinoLogger[level](sanitizedArgs[0] as object, sanitizedMsg, ...(sanitizedArgs.slice(1) as string[]));
   } else {
-    pinoLogger[level](msgOrObj as object, ...args as string[]);
+    pinoLogger[level](sanitizedMsg as object, ...(sanitizedArgs as string[]));
   }
 };
 

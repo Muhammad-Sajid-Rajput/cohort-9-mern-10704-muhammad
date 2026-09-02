@@ -30,7 +30,7 @@ const escapeHtml = (str: string): string =>
 
 export const sendMail = async (to: string, token: string) => {
   try {
-    const BASE_URL = process.env.BASE_URL || 'http://localhost:8000';
+    const BASE_URL = process.env.BASE_URL || 'https://localhost:8000';
     const verifyLink = `${BASE_URL}/api/v1/auth/verify/${encodeURIComponent(token)}`;
     await transport.sendMail({
       from: '"Notes App"',
@@ -47,7 +47,7 @@ export const sendMail = async (to: string, token: string) => {
 
 export const sendForgotPasswordMail = async (to: string, token: string) => {
   try {
-    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const FRONTEND_URL = process.env.FRONTEND_URL || 'https://localhost:5173';
     const resetLink = `${FRONTEND_URL}/reset-password/${encodeURIComponent(token)}`;
     await transport.sendMail({
       from: '"Notes App"',
@@ -113,7 +113,7 @@ export type NewLoginMailOptions = {
 
 export const sendNewLoginMail = async (options: NewLoginMailOptions) => {
   try {
-    const BASE_URL = process.env.BASE_URL || 'http://localhost:8000';
+    const BASE_URL = process.env.BASE_URL || 'https://localhost:8000';
     const resetLink = `${BASE_URL}/api/v1/auth/forgot-password`;
     const html = HTML_NEW_LOGIN.replace(/{{USERNAME}}/g, escapeHtml(options.username))
       .replace(/{{LOGIN_TIME}}/g, escapeHtml(options.time))

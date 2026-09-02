@@ -16,7 +16,7 @@ export const SettingsPage = (): ReactElement | null => {
   const getFormattedJoinedDate = (): string => {
     if ('createdAt' in user && typeof user.createdAt === 'string' && user.createdAt) {
       const date = new Date(user.createdAt);
-      if (!isNaN(date.getTime())) {
+      if (!Number.isNaN(date.getTime())) {
         return format(date, 'MMMM d, yyyy');
       }
     }

@@ -128,9 +128,9 @@ export const FormPage = (): ReactElement | null => {
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs font-extrabold uppercase tracking-wider text-on-surface-variant">
+          <span className="block text-xs font-extrabold uppercase tracking-wider text-on-surface-variant">
             Category Tags
-          </label>
+          </span>
           <div className="flex flex-wrap gap-2">
             {(['work', 'personal', 'life'] as const).map((tag) => {
               const isSelected = selectedTags.includes(tag);
@@ -153,9 +153,9 @@ export const FormPage = (): ReactElement | null => {
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs font-extrabold uppercase tracking-wider text-on-surface-variant">
+          <span className="block text-xs font-extrabold uppercase tracking-wider text-on-surface-variant">
             Note Content
-          </label>
+          </span>
           <Controller
             name="body"
             control={control}

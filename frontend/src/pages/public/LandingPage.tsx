@@ -238,8 +238,9 @@ export const LandingPage = () => {
 									<form onSubmit={handleContactSubmit} className="space-y-4">
 										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full box-border">
 											<div className="space-y-1.5">
-												<label className="text-xs font-extrabold text-on-surface uppercase tracking-wider">Your Name *</label>
+												<label htmlFor="contact-name" className="text-xs font-extrabold text-on-surface uppercase tracking-wider">Your Name *</label>
 												<input
+													id="contact-name"
 													type="text"
 													required
 													value={contactName}
@@ -249,8 +250,9 @@ export const LandingPage = () => {
 												/>
 											</div>
 											<div className="space-y-1.5">
-												<label className="text-xs font-extrabold text-on-surface uppercase tracking-wider">Your Email *</label>
+												<label htmlFor="contact-email" className="text-xs font-extrabold text-on-surface uppercase tracking-wider">Your Email *</label>
 												<input
+													id="contact-email"
 													type="email"
 													required
 													value={contactEmail}
@@ -262,8 +264,9 @@ export const LandingPage = () => {
 										</div>
 
 										<div className="space-y-1.5">
-											<label className="text-xs font-extrabold text-on-surface uppercase tracking-wider">Subject</label>
+											<label htmlFor="contact-subject" className="text-xs font-extrabold text-on-surface uppercase tracking-wider">Subject</label>
 											<input
+												id="contact-subject"
 												type="text"
 												value={contactSubject}
 												onChange={(e) => setContactSubject(e.target.value)}
@@ -273,8 +276,9 @@ export const LandingPage = () => {
 										</div>
 
 										<div className="space-y-1.5">
-											<label className="text-xs font-extrabold text-on-surface uppercase tracking-wider">Message *</label>
+											<label htmlFor="contact-message" className="text-xs font-extrabold text-on-surface uppercase tracking-wider">Message *</label>
 											<textarea
+												id="contact-message"
 												required
 												rows={4}
 												value={contactMessage}

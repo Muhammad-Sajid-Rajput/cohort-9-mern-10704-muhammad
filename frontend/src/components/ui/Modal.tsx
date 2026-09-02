@@ -96,8 +96,11 @@ export const Modal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6 sm:p-10">
-      <div
-        className="absolute inset-0 bg-neutral-900/40 backdrop-blur-sm animate-in fade-in duration-200"
+      <button
+        type="button"
+        aria-label="Close dialog backdrop"
+        tabIndex={-1}
+        className="absolute inset-0 bg-neutral-900/40 backdrop-blur-sm animate-in fade-in duration-200 cursor-default"
         onClick={onClose}
       />
       <div
