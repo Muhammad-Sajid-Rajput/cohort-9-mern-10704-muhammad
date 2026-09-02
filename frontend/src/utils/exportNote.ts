@@ -6,7 +6,7 @@ export const stripHtml = (html: string): string => {
   const div = document.createElement('div');
   div.innerHTML = html;
 
-  const blockElements = div.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, blockquote, div, hr');
+  const blockElements = div.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, blockquote, div, hr, br');
   blockElements.forEach((el) => {
     el.after(document.createTextNode('\n'));
   });
@@ -178,7 +178,13 @@ export const generateNotePdf = (note: Note): jsPDF => {
   const rawHtml = note.content || note.body || '';
   const parser = new DOMParser();
   const domDoc = parser.parseFromString(rawHtml, 'text/html');
-  const elements = Array.from(domDoc.body.children);
+  const childNodes = Array.from(domDoc.body.childNodes);
+  const hasRenderableNodes = childNodes.some((node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return Boolean(node.textContent?.trim());
+    }
+    return node.nodeType === Node.ELEMENT_NODE;
+  });
 
   const ctx: PdfContext = {
     doc,
@@ -190,7 +196,7 @@ export const generateNotePdf = (note: Note): jsPDF => {
     renderWrappedText,
   };
 
-  if (elements.length === 0) {
+  if (!hasRenderableNodes) {
     const fallbackText = stripHtml(rawHtml);
     const paragraphs = fallbackText.split('\n');
     paragraphs.forEach((p) => {
@@ -207,7 +213,19 @@ export const generateNotePdf = (note: Note): jsPDF => {
     return doc;
   }
 
-  elements.forEach((el) => {
+  childNodes.forEach((node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent?.trim() || '';
+      if (!text) return;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(40, 40, 40);
+      renderWrappedText(doc.splitTextToSize(text, contentWidth), 5, margin, 3);
+      return;
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const el = node as Element;
     const tag = el.tagName.toLowerCase();
     const text = el.textContent?.trim() || '';
     if (!text && tag !== 'hr') return;
