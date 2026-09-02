@@ -295,13 +295,22 @@ const getActiveNoteContext = async (
   noteId?: string | null,
 ): Promise<string | null> => {
   if (!noteId || !mongoose.isValidObjectId(noteId)) return null;
-  const activeNote = await Note.findOne({
-    _id: toObjectId(noteId),
-    user: toObjectId(userId),
-    isDeleted: { $ne: true },
-  });
-  if (!activeNote) return null;
-  return `[Active Note Being Viewed by User]\nTitle: ${activeNote.title}\nContent: ${activeNote.content}`;
+  try {
+    const activeNote = await Note.findOne({
+      _id: toObjectId(noteId),
+      user: toObjectId(userId),
+      isDeleted: { $ne: true },
+    });
+    if (!activeNote) return null;
+    return `[Active Note Being Viewed by User]\nTitle: ${activeNote.title}\nContent: ${activeNote.content}`;
+  } catch (err) {
+    logger.error('Failed to lookup active note context', {
+      error: err instanceof Error ? err.message : err,
+      noteId,
+      userId: userId.toString(),
+    });
+    throw err;
+  }
 };
 
 const getVectorOrFallbackContext = async (
@@ -359,11 +368,16 @@ const getVectorOrFallbackContext = async (
   }
 };
 
+export interface RAGRetrievalResult {
+  reply: string | undefined;
+  success: boolean;
+}
+
 export const augmententRetrival = async (
   message: string,
   userId: string | mongoose.Types.ObjectId,
   noteId?: string | null,
-) => {
+): Promise<RAGRetrievalResult> => {
   try {
     const contextParts: string[] = [];
 

@@ -86,7 +86,16 @@ export const sendToGemni = async (prompt: string): Promise<GeminiResponse> => {
     }
 
     const attemptTimeout = Math.min(remainingMs, ATTEMPT_TIMEOUT_MS);
-    const result = await executeModelAttempt(model, prompt, attemptTimeout);
+    let result: AttemptResult;
+    try {
+      result = await executeModelAttempt(model, prompt, attemptTimeout);
+    } catch (err: unknown) {
+      logger.warn(`gemini: unexpected rejection with model "${model}", trying next in fallback chain`, {
+        error: err instanceof Error ? err.message : err,
+      });
+      lastError = err;
+      continue;
+    }
 
     if (result.success) {
       if (model !== MODEL_FALLBACK_CHAIN[0]) {

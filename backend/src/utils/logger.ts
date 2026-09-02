@@ -9,14 +9,28 @@ if (!fs.existsSync(logDir)) {
 
 const targets: pino.TransportTargetOptions[] = [
   {
-    target: 'pino/file',
-    options: { destination: path.join(logDir, 'combined.log'), mkdir: true },
+    target: 'pino-roll',
     level: 'info',
+    options: {
+      file: path.join(logDir, 'combined'),
+      frequency: 'daily',
+      extension: '.log',
+      size: '20m',
+      limit: { count: 7 },
+      mkdir: true,
+    },
   },
   {
-    target: 'pino/file',
-    options: { destination: path.join(logDir, 'error.log'), mkdir: true },
+    target: 'pino-roll',
     level: 'error',
+    options: {
+      file: path.join(logDir, 'error'),
+      frequency: 'daily',
+      extension: '.log',
+      size: '20m',
+      limit: { count: 7 },
+      mkdir: true,
+    },
   },
 ];
 

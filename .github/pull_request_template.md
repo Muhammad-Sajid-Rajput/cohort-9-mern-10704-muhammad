@@ -2,7 +2,7 @@
 Brief description of the feature or fix.
 
 ## Why
-Which feature or requirement in IMPLEMENTATION_PLAN.md this addresses.
+Which feature or requirement in IMPLEMENTATION_PLAN.md does this change address?
 
 ## How to test
 Steps to verify the change works end-to-end.

@@ -649,23 +649,25 @@ export const FoldersPage = (): ReactElement | null => {
                 const isSelected = folderNotes.some((fn) => fn._id === note._id);
 
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={note._id}
+                    aria-pressed={isSelected}
                     onClick={() => handleToggleNoteInFolder(note)}
-                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer ${
+                    className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer ${
                       isSelected
                         ? 'border-primary/40 bg-primary/5 text-on-surface'
                         : 'border-outline-variant bg-surface hover:bg-surface-hover text-on-surface'
                     }`}
                   >
-                    <div className="min-w-0 flex-1 space-y-0.5 mr-3">
-                      <p className="text-xs font-bold truncate">{note.title}</p>
-                      <p className="text-[10px] text-on-surface-variant/70">
+                    <span className="min-w-0 flex-1 space-y-0.5 mr-3 block">
+                      <span className="text-xs font-bold truncate block">{note.title}</span>
+                      <span className="text-[10px] text-on-surface-variant/70 block">
                         {note.tags?.join(', ') || 'No tags'}
-                      </p>
-                    </div>
+                      </span>
+                    </span>
 
-                    <div
+                    <span
                       className={`w-6 h-6 rounded-xl flex items-center justify-center shrink-0 border transition-all ${
                         isSelected
                           ? 'bg-primary border-primary text-white'
@@ -673,8 +675,8 @@ export const FoldersPage = (): ReactElement | null => {
                       }`}
                     >
                       {isSelected && <Check className="w-3.5 h-3.5" />}
-                    </div>
-                  </div>
+                    </span>
+                  </button>
                 );
               })
             )}

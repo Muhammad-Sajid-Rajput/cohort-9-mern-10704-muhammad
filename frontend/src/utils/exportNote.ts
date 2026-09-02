@@ -5,7 +5,13 @@ export const stripHtml = (html: string): string => {
   if (!html) return '';
   const div = document.createElement('div');
   div.innerHTML = html;
-  return div.textContent || div.innerText || '';
+
+  const blockElements = div.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, blockquote, div, hr');
+  blockElements.forEach((el) => {
+    el.after(document.createTextNode('\n'));
+  });
+
+  return (div.textContent || div.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
 };
 
 export const formatNoteAsTxt = (note: Note): string => {
@@ -47,13 +53,17 @@ export const downloadPdfFile = (doc: jsPDF, filename: string): void => {
   doc.save(filename);
 };
 
+interface PdfCursor {
+  y: number;
+}
+
 interface PdfContext {
   doc: jsPDF;
   pageWidth: number;
   pageHeight: number;
   margin: number;
   contentWidth: number;
-  yOffset: number;
+  cursor: PdfCursor;
   renderWrappedText: (lines: string[], lineHeight: number, indent?: number, paragraphSpacing?: number) => void;
 }
 
@@ -78,7 +88,7 @@ const renderPdfHeading = (ctx: PdfContext, tag: string, text: string) => {
 };
 
 const renderPdfList = (ctx: PdfContext, tag: string, el: Element) => {
-  const { doc, contentWidth, margin, renderWrappedText } = ctx;
+  const { doc, contentWidth, margin, renderWrappedText, cursor } = ctx;
   const items = Array.from(el.children);
   items.forEach((item, idx) => {
     const itemText = item.textContent?.trim() || '';
@@ -89,27 +99,27 @@ const renderPdfList = (ctx: PdfContext, tag: string, el: Element) => {
     doc.setTextColor(40, 40, 40);
     renderWrappedText(doc.splitTextToSize(`${prefix}${itemText}`, contentWidth - 6), 5, margin + 4, 2);
   });
-  ctx.yOffset += 3;
+  cursor.y += 3;
 };
 
 const renderPdfBlockquote = (ctx: PdfContext, text: string) => {
-  const { doc, contentWidth, margin, pageHeight } = ctx;
+  const { doc, contentWidth, margin, pageHeight, cursor } = ctx;
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(10);
   doc.setTextColor(80, 80, 80);
   const wrapped = doc.splitTextToSize(text, contentWidth - 10);
   for (const line of wrapped) {
-    if (ctx.yOffset + 5 > pageHeight - margin) {
+    if (cursor.y + 5 > pageHeight - margin) {
       doc.addPage();
-      ctx.yOffset = 20;
+      cursor.y = 20;
     }
     doc.setDrawColor(180, 180, 180);
     doc.setLineWidth(1.5);
-    doc.line(margin, ctx.yOffset - 1, margin, ctx.yOffset + 4);
-    doc.text(line, margin + 6, ctx.yOffset);
-    ctx.yOffset += 5;
+    doc.line(margin, cursor.y - 1, margin, cursor.y + 4);
+    doc.text(line, margin + 6, cursor.y);
+    cursor.y += 5;
   }
-  ctx.yOffset += 5;
+  cursor.y += 5;
 };
 
 export const generateNotePdf = (note: Note): jsPDF => {
@@ -118,7 +128,7 @@ export const generateNotePdf = (note: Note): jsPDF => {
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 20;
   const contentWidth = pageWidth - margin * 2;
-  let yOffset = 25;
+  const cursor: PdfCursor = { y: 25 };
 
   const renderWrappedText = (
     lines: string[],
@@ -127,20 +137,20 @@ export const generateNotePdf = (note: Note): jsPDF => {
     paragraphSpacing = 3
   ) => {
     for (const line of lines) {
-      if (yOffset + lineHeight > pageHeight - margin) {
+      if (cursor.y + lineHeight > pageHeight - margin) {
         doc.addPage();
-        yOffset = 20;
+        cursor.y = 20;
       }
-      doc.text(line, indent, yOffset);
-      yOffset += lineHeight;
+      doc.text(line, indent, cursor.y);
+      cursor.y += lineHeight;
     }
-    yOffset += paragraphSpacing;
+    cursor.y += paragraphSpacing;
   };
 
   // Header Banner
   doc.setFillColor(30, 41, 59);
-  doc.rect(margin, yOffset - 5, contentWidth, 2, 'F');
-  yOffset += 6;
+  doc.rect(margin, cursor.y - 5, contentWidth, 2, 'F');
+  cursor.y += 6;
 
   // Title
   doc.setFont('helvetica', 'bold');
@@ -155,14 +165,14 @@ export const generateNotePdf = (note: Note): jsPDF => {
   doc.setTextColor(100, 116, 139);
   const dateStr = note.createdAt ? new Date(note.createdAt).toLocaleDateString() : 'Unspecified';
   const tagsStr = note.tags && note.tags.length > 0 ? note.tags.join(', ') : 'None';
-  doc.text(`Created: ${dateStr}   |   Tags: ${tagsStr}`, margin, yOffset);
-  yOffset += 6;
+  doc.text(`Created: ${dateStr}   |   Tags: ${tagsStr}`, margin, cursor.y);
+  cursor.y += 6;
 
   // Subtle separator line
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.5);
-  doc.line(margin, yOffset, pageWidth - margin, yOffset);
-  yOffset += 8;
+  doc.line(margin, cursor.y, pageWidth - margin, cursor.y);
+  cursor.y += 8;
 
   // Content rendering
   const rawHtml = note.content || note.body || '';
@@ -176,7 +186,7 @@ export const generateNotePdf = (note: Note): jsPDF => {
     pageHeight,
     margin,
     contentWidth,
-    yOffset,
+    cursor,
     renderWrappedText,
   };
 
@@ -186,7 +196,7 @@ export const generateNotePdf = (note: Note): jsPDF => {
     paragraphs.forEach((p) => {
       const trimmed = p.trim();
       if (!trimmed) {
-        ctx.yOffset += 4;
+        cursor.y += 4;
         return;
       }
       doc.setFont('helvetica', 'normal');
@@ -205,14 +215,14 @@ export const generateNotePdf = (note: Note): jsPDF => {
     if (tag.startsWith('h')) {
       renderPdfHeading(ctx, tag, text);
     } else if (tag === 'hr') {
-      if (ctx.yOffset + 8 > pageHeight - margin) {
+      if (cursor.y + 8 > pageHeight - margin) {
         doc.addPage();
-        ctx.yOffset = 20;
+        cursor.y = 20;
       }
       doc.setDrawColor(220, 220, 220);
       doc.setLineWidth(0.5);
-      doc.line(margin, ctx.yOffset, pageWidth - margin, ctx.yOffset);
-      ctx.yOffset += 6;
+      doc.line(margin, cursor.y, pageWidth - margin, cursor.y);
+      cursor.y += 6;
     } else if (tag === 'ul' || tag === 'ol') {
       renderPdfList(ctx, tag, el);
     } else if (tag === 'blockquote') {
@@ -228,6 +238,4 @@ export const generateNotePdf = (note: Note): jsPDF => {
   return doc;
 };
 
-// Export backward-compatible aliases
 export const formatSingleNoteText = formatNoteAsTxt;
-export const renderNoteToPdf = (_doc: jsPDF, note: Note): jsPDF => generateNotePdf(note);

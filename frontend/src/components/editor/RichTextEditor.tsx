@@ -52,7 +52,7 @@ const isValidUrl = (url: string): boolean => {
   if (!url) return false;
   if (/^mailto:/i.test(url)) {
     const email = url.slice(7).trim();
-    return /^\S+@\S+\.\S+$/.test(email);
+    return /^[^\s@]+@[^\s@.]+\.[^\s@.]+$/.test(email);
   }
   if (/^tel:/i.test(url)) {
     const phone = url.slice(4).trim();
