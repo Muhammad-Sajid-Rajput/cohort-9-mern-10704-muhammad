@@ -10,6 +10,8 @@ import {
 
 const transport = nodemailer.createTransport({
   service: 'gmail',
+  secure: true,
+  port: 465,
   auth: {
     user: process.env.APP_EMAIL,
     pass: process.env.APP_PASS,

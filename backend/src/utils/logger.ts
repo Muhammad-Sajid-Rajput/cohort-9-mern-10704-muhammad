@@ -76,48 +76,48 @@ export const logger = {
     if (typeof msg === 'string') {
       const cleanMsg = String(sanitize(msg));
       if (meta && typeof meta === 'object') {
-        pinoLogger.info(sanitize(meta) as object, cleanMsg);
+        pinoLogger.info(sanitize(meta) as object, cleanMsg)
       } else {
-        pinoLogger.info(cleanMsg);
+        pinoLogger.info(cleanMsg)
       }
     } else {
-      pinoLogger.info(sanitize(msg) as object);
+      pinoLogger.info(sanitize(msg) as object)
     }
   },
   error: (msg: string | object, meta?: object): void => {
     if (typeof msg === 'string') {
       const cleanMsg = String(sanitize(msg));
       if (meta && typeof meta === 'object') {
-        pinoLogger.error(sanitize(meta) as object, cleanMsg);
+        pinoLogger.error(sanitize(meta) as object, cleanMsg)
       } else {
-        pinoLogger.error(cleanMsg);
+        pinoLogger.error(cleanMsg)
       }
     } else {
-      pinoLogger.error(sanitize(msg) as object);
+      pinoLogger.error(sanitize(msg) as object)
     }
   },
   warn: (msg: string | object, meta?: object): void => {
     if (typeof msg === 'string') {
       const cleanMsg = String(sanitize(msg));
       if (meta && typeof meta === 'object') {
-        pinoLogger.warn(sanitize(meta) as object, cleanMsg);
+        pinoLogger.warn(sanitize(meta) as object, cleanMsg)
       } else {
-        pinoLogger.warn(cleanMsg);
+        pinoLogger.warn(cleanMsg)
       }
     } else {
-      pinoLogger.warn(sanitize(msg) as object);
+      pinoLogger.warn(sanitize(msg) as object)
     }
   },
   debug: (msg: string | object, meta?: object): void => {
     if (typeof msg === 'string') {
       const cleanMsg = String(sanitize(msg));
       if (meta && typeof meta === 'object') {
-        pinoLogger.debug(sanitize(meta) as object, cleanMsg);
+        pinoLogger.debug(sanitize(meta) as object, cleanMsg)
       } else {
-        pinoLogger.debug(cleanMsg);
+        pinoLogger.debug(cleanMsg)
       }
     } else {
-      pinoLogger.debug(sanitize(msg) as object);
+      pinoLogger.debug(sanitize(msg) as object)
     }
   },
 };

@@ -68,7 +68,7 @@ async function startServer() {
         try {
           await new Promise<void>((resolve, reject) => {
             server.close((err) => {
-              logger.info('server is closing due to ', sign);
+              logger.info(`server is closing due to ${sign}`);
               if (err) reject(err);
               else resolve();
             });
@@ -82,7 +82,7 @@ async function startServer() {
     });
 
     process.on('unhandledRejection', (reason: unknown) => {
-      logger.error('Unhandled Promise Rejection', reason);
+      logger.error('Unhandled Promise Rejection', reason instanceof Error ? { message: reason.message } : { reason: String(reason) });
       process.exit(1);
     });
 
