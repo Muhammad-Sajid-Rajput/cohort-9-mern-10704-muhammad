@@ -28,10 +28,22 @@ const escapeHtml = (str: string): string =>
     return escapeMap[match] || match;
   });
 
+const getBaseUrl = (): string => {
+  if (process.env.BASE_URL) return process.env.BASE_URL;
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  return `${protocol}://localhost:8000`;
+};
+
+const getFrontendUrl = (): string => {
+  if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL;
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  return `${protocol}://localhost:5173`;
+};
+
 export const sendMail = async (to: string, token: string) => {
   try {
-    const BASE_URL = process.env.BASE_URL || 'http://localhost:8000';
-    const verifyLink = `${BASE_URL}/api/v1/auth/verify/${encodeURIComponent(token)}`;
+    const baseUrl = getBaseUrl();
+    const verifyLink = `${baseUrl}/api/v1/auth/verify/${encodeURIComponent(token)}`;
     await transport.sendMail({
       from: '"Notes App"',
       to,
@@ -47,8 +59,8 @@ export const sendMail = async (to: string, token: string) => {
 
 export const sendForgotPasswordMail = async (to: string, token: string) => {
   try {
-    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const resetLink = `${FRONTEND_URL}/reset-password/${encodeURIComponent(token)}`;
+    const frontendUrl = getFrontendUrl();
+    const resetLink = `${frontendUrl}/reset-password/${encodeURIComponent(token)}`;
     await transport.sendMail({
       from: '"Notes App"',
       to,
@@ -113,8 +125,8 @@ export type NewLoginMailOptions = {
 
 export const sendNewLoginMail = async (options: NewLoginMailOptions) => {
   try {
-    const BASE_URL = process.env.BASE_URL || 'http://localhost:8000';
-    const resetLink = `${BASE_URL}/api/v1/auth/forgot-password`;
+    const baseUrl = getBaseUrl();
+    const resetLink = `${baseUrl}/api/v1/auth/forgot-password`;
     const html = HTML_NEW_LOGIN.replace(/{{USERNAME}}/g, escapeHtml(options.username))
       .replace(/{{LOGIN_TIME}}/g, escapeHtml(options.time))
       .replace(/{{LOGIN_LOCATION}}/g, escapeHtml(options.location))
