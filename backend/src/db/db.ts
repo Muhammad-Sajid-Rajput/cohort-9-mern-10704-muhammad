@@ -6,7 +6,7 @@ export const connectDb = async () => {
     await mongoose.connect(process.env.MONGO_URI as string);
     logger.info('db connected');
   } catch (error) {
-    logger.error('db connection failed', error instanceof Error ? { message: error.message } : { error: String(error) });
+    logger.error('db connection failed', error);
     process.exit(1);
   }
 };
@@ -16,7 +16,7 @@ export const disconnectDb = async () => {
     await mongoose.disconnect();
     logger.info('db disconnected');
   } catch (error) {
-    logger.error('db disconnect failed', error instanceof Error ? { message: error.message } : { error: String(error) });
+    logger.error('db disconnect failed', error);
     process.exit(1);
   }
 };

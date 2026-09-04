@@ -61,6 +61,16 @@ const sanitize = (data: unknown): unknown => {
   if (typeof data === 'string') {
     return data.replace(/[\r\n\t]/g, ' ').slice(0, 1000).trim();
   }
+
+  if (data instanceof Error) {
+    return {
+      err: {
+        message: data.message.replace(/[\r\n\t]/g, ' ').slice(0, 1000).trim(),
+        stack: data.stack ? data.stack.replace(/[\r\n\t]/g, ' ').slice(0, 2000).trim() : undefined,
+        name: data.name,
+      },
+    };
+  }
   if (typeof data === 'object' && data !== null) {
     const cleanObj: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(data)) {
@@ -71,53 +81,63 @@ const sanitize = (data: unknown): unknown => {
   return data;
 };
 
+const normalizeMeta = (meta: unknown): object => {
+  if (meta instanceof Error) {
+    return sanitize(meta) as object;
+  }
+  if (meta !== null && typeof meta === 'object') {
+    return sanitize(meta) as object;
+  }
+  return { value: String(meta).replace(/[\r\n\t]/g, ' ').slice(0, 1000).trim() };
+};
+
 export const logger = {
-  info: (msg: string | object, meta?: object): void => {
+  info: (msg: string | object, meta?: unknown): void => {
     if (typeof msg === 'string') {
       const cleanMsg = String(sanitize(msg));
-      if (meta && typeof meta === 'object') {
-        pinoLogger.info(sanitize(meta) as object, cleanMsg)
+      if (meta !== undefined && meta !== null) {
+        pinoLogger.info(normalizeMeta(meta), cleanMsg);
       } else {
-        pinoLogger.info(cleanMsg)
+        pinoLogger.info(cleanMsg);
       }
     } else {
-      pinoLogger.info(sanitize(msg) as object)
+      pinoLogger.info(sanitize(msg) as object);
     }
   },
-  error: (msg: string | object, meta?: object): void => {
+  error: (msg: string | object, meta?: unknown): void => {
     if (typeof msg === 'string') {
       const cleanMsg = String(sanitize(msg));
-      if (meta && typeof meta === 'object') {
-        pinoLogger.error(sanitize(meta) as object, cleanMsg)
+      if (meta !== undefined && meta !== null) {
+        pinoLogger.error(normalizeMeta(meta), cleanMsg);
       } else {
-        pinoLogger.error(cleanMsg)
+        pinoLogger.error(cleanMsg);
       }
     } else {
-      pinoLogger.error(sanitize(msg) as object)
+      pinoLogger.error(sanitize(msg) as object);
     }
   },
-  warn: (msg: string | object, meta?: object): void => {
+  warn: (msg: string | object, meta?: unknown): void => {
     if (typeof msg === 'string') {
       const cleanMsg = String(sanitize(msg));
-      if (meta && typeof meta === 'object') {
-        pinoLogger.warn(sanitize(meta) as object, cleanMsg)
+      if (meta !== undefined && meta !== null) {
+        pinoLogger.warn(normalizeMeta(meta), cleanMsg);
       } else {
-        pinoLogger.warn(cleanMsg)
+        pinoLogger.warn(cleanMsg);
       }
     } else {
-      pinoLogger.warn(sanitize(msg) as object)
+      pinoLogger.warn(sanitize(msg) as object);
     }
   },
-  debug: (msg: string | object, meta?: object): void => {
+  debug: (msg: string | object, meta?: unknown): void => {
     if (typeof msg === 'string') {
       const cleanMsg = String(sanitize(msg));
-      if (meta && typeof meta === 'object') {
-        pinoLogger.debug(sanitize(meta) as object, cleanMsg)
+      if (meta !== undefined && meta !== null) {
+        pinoLogger.debug(normalizeMeta(meta), cleanMsg);
       } else {
-        pinoLogger.debug(cleanMsg)
+        pinoLogger.debug(cleanMsg);
       }
     } else {
-      pinoLogger.debug(sanitize(msg) as object)
+      pinoLogger.debug(sanitize(msg) as object);
     }
   },
 };

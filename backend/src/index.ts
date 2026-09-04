@@ -82,7 +82,7 @@ async function startServer() {
     });
 
     process.on('unhandledRejection', (reason: unknown) => {
-      logger.error('Unhandled Promise Rejection', reason instanceof Error ? { message: reason.message } : { reason: String(reason) });
+      logger.error('Unhandled Promise Rejection', reason);
       process.exit(1);
     });
 
