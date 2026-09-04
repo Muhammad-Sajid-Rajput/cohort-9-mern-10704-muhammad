@@ -64,53 +64,61 @@ const sanitizeLogString = (val: unknown): string => {
   return String(val ?? '').slice(0, 1000);
 };
 
+const formatLogMessage = (msgOrObj: string | object, args: unknown[]): { msg: string; obj?: object } => {
+  if (typeof msgOrObj === 'string') {
+    if (args.length === 0) {
+      return { msg: sanitizeLogString(msgOrObj) };
+    }
+    if (args.length === 1 && typeof args[0] === 'object' && args[0] !== null) {
+      return { msg: sanitizeLogString(msgOrObj), obj: args[0] as object };
+    }
+    const formattedArgs = args
+      .map((a) => (typeof a === 'object' && a !== null ? JSON.stringify(a) : sanitizeLogString(a)))
+      .join(' ');
+    return { msg: `${sanitizeLogString(msgOrObj)} ${formattedArgs}` };
+  }
+  return { msg: '', obj: msgOrObj };
+};
+
 export const logger = {
-  info: (msgOrObj: string | object, ...args: unknown[]) => {
-    if (typeof msgOrObj === 'string') {
-      const sanitized = sanitizeLogString(msgOrObj);
-      if (args.length > 0 && typeof args[0] === 'object' && args[0] !== null) {
-        pinoLogger.info(args[0] as object, sanitized);
-      } else {
-        pinoLogger.info(sanitized);
-      }
+  info: (msgOrObj: string | object, ...args: unknown[]): void => {
+    const { msg, obj } = formatLogMessage(msgOrObj, args);
+    if (obj && msg) {
+      pinoLogger.info(obj, msg);
+    } else if (obj) {
+      pinoLogger.info(obj);
     } else {
-      pinoLogger.info(msgOrObj);
+      pinoLogger.info(msg);
     }
   },
-  error: (msgOrObj: string | object, ...args: unknown[]) => {
-    if (typeof msgOrObj === 'string') {
-      const sanitized = sanitizeLogString(msgOrObj);
-      if (args.length > 0 && typeof args[0] === 'object' && args[0] !== null) {
-        pinoLogger.error(args[0] as object, sanitized);
-      } else {
-        pinoLogger.error(sanitized);
-      }
+  error: (msgOrObj: string | object, ...args: unknown[]): void => {
+    const { msg, obj } = formatLogMessage(msgOrObj, args);
+    if (obj && msg) {
+      pinoLogger.error(obj, msg);
+    } else if (obj) {
+      pinoLogger.error(obj);
     } else {
-      pinoLogger.error(msgOrObj);
+      pinoLogger.error(msg);
     }
   },
-  warn: (msgOrObj: string | object, ...args: unknown[]) => {
-    if (typeof msgOrObj === 'string') {
-      const sanitized = sanitizeLogString(msgOrObj);
-      if (args.length > 0 && typeof args[0] === 'object' && args[0] !== null) {
-        pinoLogger.warn(args[0] as object, sanitized);
-      } else {
-        pinoLogger.warn(sanitized);
-      }
+  warn: (msgOrObj: string | object, ...args: unknown[]): void => {
+    const { msg, obj } = formatLogMessage(msgOrObj, args);
+    if (obj && msg) {
+      pinoLogger.warn(obj, msg);
+    } else if (obj) {
+      pinoLogger.warn(obj);
     } else {
-      pinoLogger.warn(msgOrObj);
+      pinoLogger.warn(msg);
     }
   },
-  debug: (msgOrObj: string | object, ...args: unknown[]) => {
-    if (typeof msgOrObj === 'string') {
-      const sanitized = sanitizeLogString(msgOrObj);
-      if (args.length > 0 && typeof args[0] === 'object' && args[0] !== null) {
-        pinoLogger.debug(args[0] as object, sanitized);
-      } else {
-        pinoLogger.debug(sanitized);
-      }
+  debug: (msgOrObj: string | object, ...args: unknown[]): void => {
+    const { msg, obj } = formatLogMessage(msgOrObj, args);
+    if (obj && msg) {
+      pinoLogger.debug(obj, msg);
+    } else if (obj) {
+      pinoLogger.debug(obj);
     } else {
-      pinoLogger.debug(msgOrObj);
+      pinoLogger.debug(msg);
     }
   },
 };

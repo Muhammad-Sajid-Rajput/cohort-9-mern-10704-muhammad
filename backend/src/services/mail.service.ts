@@ -40,7 +40,7 @@ const getFrontendUrl = (): string => {
   return `${protocol}://localhost:5173`;
 };
 
-export const sendMail = async (to: string, token: string) => {
+export const sendMail = async (to: string, token: string): Promise<void> => {
   try {
     const baseUrl = getBaseUrl();
     const verifyLink = `${baseUrl}/api/v1/auth/verify/${encodeURIComponent(token)}`;
@@ -57,7 +57,7 @@ export const sendMail = async (to: string, token: string) => {
   }
 };
 
-export const sendForgotPasswordMail = async (to: string, token: string) => {
+export const sendForgotPasswordMail = async (to: string, token: string): Promise<void> => {
   try {
     const frontendUrl = getFrontendUrl();
     const resetLink = `${frontendUrl}/reset-password/${encodeURIComponent(token)}`;
@@ -79,7 +79,7 @@ export const sendForgotPasswordMail = async (to: string, token: string) => {
 export const sendPasswordResetSuccessMail = async (
   to: string,
   username: string,
-) => {
+): Promise<void> => {
   try {
     const safeUsername = escapeHtml(username);
     await transport.sendMail({
@@ -97,7 +97,7 @@ export const sendPasswordResetSuccessMail = async (
   }
 };
 
-export const sendAccountVerifiedMail = async (to: string, username: string) => {
+export const sendAccountVerifiedMail = async (to: string, username: string): Promise<void> => {
   try {
     const safeUsername = escapeHtml(username);
     await transport.sendMail({
@@ -123,7 +123,7 @@ export type NewLoginMailOptions = {
   device: string;
 };
 
-export const sendNewLoginMail = async (options: NewLoginMailOptions) => {
+export const sendNewLoginMail = async (options: NewLoginMailOptions): Promise<void> => {
   try {
     const baseUrl = getBaseUrl();
     const resetLink = `${baseUrl}/api/v1/auth/forgot-password`;
