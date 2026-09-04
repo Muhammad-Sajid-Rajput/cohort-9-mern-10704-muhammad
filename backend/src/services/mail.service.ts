@@ -29,15 +29,11 @@ const escapeHtml = (str: string): string =>
   });
 
 const getBaseUrl = (): string => {
-  if (process.env.BASE_URL) return process.env.BASE_URL;
-  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-  return `${protocol}://localhost:8000`;
+  return process.env.BASE_URL || 'https://localhost:8000';
 };
 
 const getFrontendUrl = (): string => {
-  if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL;
-  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-  return `${protocol}://localhost:5173`;
+  return process.env.FRONTEND_URL || 'https://localhost:5173';
 };
 
 export const sendMail = async (to: string, token: string): Promise<void> => {
